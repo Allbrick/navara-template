@@ -1,0 +1,51 @@
+import type { DefaultPlugin } from "@navaramap/three-default-plugin";
+import { useState } from "react";
+
+import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
+import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
+import { BaseLayers } from "./scene/BaseLayers";
+import { PhotorealScene } from "./scene/PhotorealScene";
+
+const DEMOS = [
+  { id: "sunrise", label: "일출" },
+  { id: "fireworks", label: "불꽃놀이" },
+] as const;
+
+type DemoId = (typeof DEMOS)[number]["id"];
+
+type Props = {
+  plugin: DefaultPlugin;
+};
+
+/**
+ * ViewProvider 내부에서 데모 전환 상태를 갖는다.
+ *
+ * 이 상태를 App에 두면 ViewProvider가 리렌더되고, ViewProvider의 초기화
+ * effect가 옵션 객체 신원 변화로 재실행되면서 경고를 출력한다. 상태를
+ * Provider 안쪽에 두어 그 경로를 막는다.
+ */
+export function Demos({ plugin }: Props) {
+  const [demo, setDemo] = useState<DemoId>("sunrise");
+
+  return (
+    <>
+      <PhotorealScene plugin={plugin} />
+      <BaseLayers />
+
+      <nav className="tabs">
+        {DEMOS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={demo === id}
+            onClick={() => setDemo(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {demo === "sunrise" ? <SunriseAnalysis /> : <FireworksAnalysis />}
+    </>
+  );
+}

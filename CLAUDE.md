@@ -2,49 +2,147 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **상태: 골격(skeleton).** 이 리포지토리는 아직 소스 코드가 없는 초기 상태입니다.
-> 아래 `TBD` 항목은 실제 코드/설정이 생기는 시점에 채웁니다.
-> 스캐폴딩이 끝나면 `/init`을 다시 실행해 명령어와 아키텍처 섹션을 갱신하세요.
+## Purpose
+
+[Navara](https://github.com/reearth/navara) 3D GIS 엔진을 검증하는 테스트 프로젝트입니다.
+Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌어내는 것이 목표이며, 두 개의 데모를 만듭니다.
+
+| 데모 | 내용 | 활용할 Navara 특성 | 상태 |
+|------|------|--------------------|------|
+| 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 그림자 | 기본 동작 (태양시 슬라이더 + 일출 시각 계산) |
+| 불꽃놀이 분석 | 야간 씬에서 불꽃 발광 및 관측 시뮬레이션 | 커스텀 라이트/이펙트, 포스트프로세싱, 셰이더 | 미구현 (야간 전환만) |
+
+일출 분석의 남은 과제: 지형 차폐 판정(현재 고도는 수평선 기준이라 산에 가리는지 미반영),
+관측 지점 선택 UI, 일몰/박명 시각.
+
+**중요: 이 리포지토리는 Navara를 *사용하는* 쪽입니다.** Navara 리포지토리의 README에 나오는
+`cargo make dev`, `cargo make prepare`, `wasm-bindgen-cli` 설치 등은 **엔진 자체를 빌드**하는 명령이므로
+이 프로젝트에는 해당하지 않습니다. 여기서는 npm 패키지로 배포된 Navara를 소비합니다.
+(엔진 소스를 직접 수정·디버깅해야 하는 상황이 오기 전까지 Rust 툴체인은 불필요합니다.)
+
+## Navara 개요
+
+### 4-tier API
+
+Navara는 기능을 4계층으로 제공하며, 필요한 만큼만 아래로 내려가는 것이 설계 의도입니다.
+**가능한 한 위쪽 티어를 쓰고, 아래 티어는 필요할 때만 내려갑니다.**
+
+1. **Declarative** — source/layer를 평범한 config 객체로 선언 (basemap, terrain, vector, 3D Tiles).
+   mesh·effect·light도 동일하게 선언형으로 다룸.
+2. **Plugin** — 완성된 기능 번들 (photorealistic scene, first-person walking, DOM 오버레이, attribution UI).
+   직접 플러그인을 패키징해 공유 가능.
+3. **API** — 속성 기반 피처 스타일링(`FeatureEvaluator`), 피처 피킹, **지형 샘플링**, 카메라 제어,
+   맵 엔진 없이도 쓸 수 있는 측지/ECEF 수학 유틸리티.
+4. **Shader** — 렌더링 엔진 전체 접근. 씬 그래프와 렌더 파이프라인에 대해 커스텀
+   mesh/effect/light descriptor와 셰이더 작성.
+
+### 내부 구조
+
+렌더러 독립적인 **headless GIS core**입니다. 데이터 파싱·지오메트리 생성 등 재사용 가능한 GIS 로직은
+**Rust / WebAssembly**에 있고, 그리기는 CG 렌더링 전문 라이브러리(현재 **Three.js**)에 위임합니다.
+렌더링 레이어를 교체 가능하게 유지하는 것이 향후 다른 렌더러/플랫폼 확장의 근거입니다.
+
+실무적 함의: **WASM과 Web Worker가 런타임에 포함**됩니다(`@navaramap/worker`).
+번들러 설정에서 WASM 로딩과 워커 처리를 반드시 확인해야 하며, 이 부분이 초기 셋업의 주된 함정입니다.
+
+### 패키지 (npm scope: `@navaramap`, 확인 시점 v0.1.1)
+
+- **`@navaramap/three`** — Three.js 바인딩이자 **메인 진입점**. 보통 이것만 직접 설치.
+  - 전이 의존: `@navaramap/core`, `engine`, `engine-api`, `three-api`, `three-csm`, `font`, `worker`
+- `@navaramap/three-react` — React 바인딩
+- `@navaramap/three-plugins`, `@navaramap/three-default-plugin`, `@navaramap/three-default-descs`
+
+**peerDependencies (직접 설치해야 함):** `three >=0.183.0`, `postprocessing >=6.38.0`
+
+### 두 데모에 직결되는 내장 의존성
+
+`@navaramap/three`가 이미 아래를 품고 있습니다. **직접 구현하기 전에 이들이 노출하는 API를 먼저 확인하세요.**
+
+- **`astronomy-engine`** — 태양/천체 위치 계산. *일출 분석의 핵심.* 별도 라이브러리 도입 불필요.
+- **`@takram/three-atmosphere`** — 대기 산란. 일출의 하늘 색·태양광 표현.
+- **`@takram/three-clouds`** — 구름
+- **`@takram/three-geospatial-effects`** — 지리공간 포스트프로세싱 이펙트. *불꽃놀이 발광(bloom) 계열에 관련.*
+- `@navaramap/three-csm` — Cascaded Shadow Maps. *지형 그림자 → 일출 가시성 판정에 관련.*
 
 ## Commands
 
-<!-- 아직 package.json / 빌드 설정이 없어 확정된 명령이 없음 -->
+| 목적 | 명령 |
+|------|------|
+| 설치 | `pnpm install` |
+| 개발 서버 | `pnpm dev` |
+| 빌드 | `pnpm build` (타입체크 후 vite build) |
+| 타입체크 | `pnpm typecheck` |
+| 빌드 미리보기 | `pnpm preview` |
 
-| 목적 | 명령 | 비고 |
-|------|------|------|
-| 설치 | TBD | 패키지 매니저 미정 |
-| 개발 서버 | TBD | |
-| 빌드 | TBD | |
-| 타입체크 | TBD | |
-| 린트 / 포맷 | TBD | |
-| 전체 테스트 | TBD | |
-| 단일 테스트 | TBD | 파일/테스트명 단위 실행 방법 명시 |
+린터·테스트 러너는 아직 도입하지 않았습니다. 테스트를 추가한다면 순수 함수인
+`src/demos/sunrise/sun.ts`가 첫 대상으로 적합합니다 (엔진 의존 없이 구조적 타입만 사용).
 
-## Architecture
+## Stack
 
-<!-- 여러 파일을 읽어야 파악되는 "큰 그림"만 기록. 파일 목록 나열 금지. -->
+Vite + React 19 + TypeScript. 스택 선택은 Navara 본체와 맞춘 것입니다(pnpm).
 
-TBD — 다음이 정해지면 기록:
+## Structure
 
-- 이 템플릿이 무엇을 위한 템플릿인지 (생성 대상 프로젝트의 형태)
-- 모듈/패키지 경계와 의존 방향
-- 템플릿 변수 치환·스캐폴딩이 일어나는 지점
-- 외부 시스템(API, 지도/타일 서버, 인증 등) 연동 경계
+```
+src/
+  App.tsx          ViewProvider 설정 (canvas, plugins, shadow)
+  Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
+  constants.ts     서울 좌표, 초기 카메라
+  scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들)
+  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(순수 계산)
+  demos/fireworks/ FireworksAnalysis.tsx — 미구현 스텁
+  ui/              Panel
+```
 
-## Conventions
+## 구현 시 주의점 (실제로 부딪힌 것들)
 
-TBD — 코드가 생기면 실제 코드에서 관찰되는 규칙만 기록 (일반론 금지).
+1. **초기화 순서**: 플러그인은 `view.init()` 전에, source/layer/effect는 그 후에 등록해야
+   합니다. `ViewProvider`가 `plugins` prop으로 전자를, init 완료 후에만 children을
+   렌더링하여 후자를 보장합니다. `addDefaultPhotorealScene()`은 반드시 children 쪽에서
+   호출합니다.
+
+2. **StrictMode를 쓰지 않습니다**. `@navaramap/three-react` v0.1.1의 `ViewProvider`는
+   `dispose`가 미구현(소스에 TODO)이라 이중 마운트 시 ThreeView를 재생성하지 못하고
+   "You need to recreate ThreeView." 경고를 냅니다. 상위 버전에서 해결되면 되돌리세요.
+
+3. **데모 전환 상태는 `ViewProvider` 안쪽에 둡니다**(`Demos.tsx`). 밖에 두면 Provider가
+   리렌더되고, 초기화 effect의 의존성인 옵션 객체 신원이 매번 바뀌어 경고가 반복됩니다.
+
+4. **지형은 Terrarium 인코딩(AWS Terrain Tiles)** 을 씁니다. Navara 문서 예제의
+   `JAPAN_GSI_ELEVATION_DECODER`는 일본만 덮으므로 한국에서는 쓸 수 없습니다.
+
+5. **three는 단일 인스턴스여야 합니다.** `vite.config.ts`의 `resolve.dedupe`로 고정합니다.
+   `optimizeDeps.exclude`로 Navara 패키지를 제외하면 오히려 three가 이중 로드됩니다.
+
+6. **첫 화면이 15~20초간 비어 보이는 것은 정상입니다.** WASM(약 4.6MB) + 대기 산란
+   텍스처 + 타일을 받는 시간입니다. 흰 지면만 보인다고 설정 오류로 단정하지 마세요.
+
+7. **태양시 ≠ KST.** `setSolarTime`/`getSolarTime`은 경도 기준 진태양시입니다. 서울은
+   KST 표준자오선보다 서쪽이라 약 32분 늦습니다. 사용자에게 보여줄 시각은
+   `atmosphere.date`를 `Asia/Seoul`로 포맷하세요.
+
+## 알려진 이슈
+
+- 콘솔에 `THREE.WARNING: Multiple instances of Three.js being imported.`가 남아 있습니다.
+  `resolve.dedupe` 적용 후에도 사라지지 않으며, 렌더링에는 지장이 없는 것으로 확인했습니다.
+  원인 미규명 — 셰이더/머티리얼 관련 이상이 생기면 이것부터 의심하세요.
 
 ## Environment
 
 - 개발 환경은 **Windows**입니다. 셸 명령은 PowerShell 문법 또는 크로스 플랫폼 호환 형태로 제시하세요.
 - 경로 구분자와 줄바꿈(CRLF/LF) 차이에 주의합니다.
 
+## References
+
+- 리포지토리: https://github.com/reearth/navara (Apache-2.0 / MIT 듀얼 라이선스)
+- 문서: https://navara.world/docs/
+- 예제: https://navara.world/examples/ — 데모 구현 전 유사 예제를 먼저 확인할 것
+
 ## Repository state
 
-- `main` 브랜치에 아직 커밋이 없습니다. 첫 커밋 시 스캐폴딩과 설정을 함께 넣으세요.
-- `.gitignore`는 Node/TypeScript 기준으로 작성되어 있습니다. 다른 스택을 선택하면 함께 갱신하세요.
-- `.bkit/`은 bkit 플러그인(PDCA 워크플로)의 **로컬 도구 상태**이며 전체가 gitignore 대상입니다.
+- `main` 브랜치에 아직 커밋이 없습니다. 첫 커밋에 스캐폴딩과 설정을 함께 넣으세요.
+- `.gitignore`는 Node/TypeScript 기준으로 작성되어 있습니다.
+- `.bkit/`은 bkit 플러그인의 **로컬 도구 상태**이며 전체가 gitignore 대상입니다.
   머신 종속 절대경로를 담고 세션마다 재작성되므로 커밋하지 마세요.
   주의: 현재 내용은 **다른 프로젝트**(`forest-digital-platform-frontend`)에서 넘어온 이력이라
-  이 리포지토리와 무관합니다. bkit이 세션 시작 시 엉뚱한 이전 작업(`viewshed`) 재개를 제안할 수 있습니다.
+  이 리포지토리와 무관합니다. bkit이 세션 시작 시 엉뚱한 이전 작업(`viewshed`) 재개를 제안할 수 있으니 무시하세요.
