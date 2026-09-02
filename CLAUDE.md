@@ -123,6 +123,10 @@ src/
 4. **지형은 Terrarium 인코딩(AWS Terrain Tiles)** 을 씁니다. Navara 문서 예제의
    `JAPAN_GSI_ELEVATION_DECODER`는 일본만 덮으므로 한국에서는 쓸 수 없습니다.
 
+   베이스맵은 **Esri World Imagery**(위성영상)입니다. 키가 필요 없고 CORS가 열려
+   있습니다. **URL 순서가 `{z}/{y}/{x}`로 흔한 `{z}/{x}/{y}`와 뒤바뀌어 있으니**
+   교체할 때 주의하세요. 서울 기준 z19까지 실제 영상이 오고 z20은 빈 타일입니다.
+
 5. **three는 단일 인스턴스여야 합니다.** `vite.config.ts`의 `resolve.dedupe`로 고정합니다.
    `optimizeDeps.exclude`로 Navara 패키지를 제외하면 오히려 three가 이중 로드됩니다.
 

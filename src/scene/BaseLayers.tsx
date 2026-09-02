@@ -22,8 +22,10 @@ export function BaseLayers() {
 
     view.attribution?.add([
       {
-        attribution: "© OpenStreetMap contributors",
-        attributionUrl: "https://www.openstreetmap.org/copyright",
+        attribution:
+          "Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+        attributionUrl:
+          "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
       },
       {
         attribution: "Terrain: AWS Terrain Tiles / Mapzen",
@@ -37,8 +39,11 @@ export function BaseLayers() {
     () =>
       view.addSource({
         type: "raster-tile",
-        url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        // Esri World Imagery. 키가 필요 없고 CORS가 열려 있다.
+        // URL 순서가 {z}/{y}/{x}로, 흔한 {z}/{x}/{y}와 뒤바뀌어 있다.
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         minZoom: 2,
+        // 서울 기준 z19까지 실제 영상이 오고, z20은 빈 타일이 온다.
         maxZoom: 19,
       }),
     [view],
