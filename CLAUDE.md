@@ -11,6 +11,7 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 |------|------|--------------------|------|
 | 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 샘플링 | 동작 (태양시 슬라이더, 일출 시각, 지형 차폐 판정) |
 | 불꽃놀이 분석 | 야간 씬에서 불꽃 발광 및 관측지 가시성 판정 | InstancedMesh, SelectiveBloom, 지형 샘플링 | 동작 (입자 시뮬레이션 + 관측 후보지 가시성) |
+| 탐방 | 지도에서 지점을 골라 캐릭터를 배치하고 걸어다님 | PersonViewPlugin, 지형 collision, 피킹 | 동작 (클릭 배치 + 3인칭/1인칭 조작) |
 
 두 데모는 `analysis/occlusion.ts`의 지형 차폐 계산을 공유한다 — "특정 방위의 지형이
 목표보다 높이 솟았는가"라는 동일한 문제이기 때문이다.
@@ -92,11 +93,13 @@ src/
   App.tsx          ViewProvider 설정 (canvas, plugins, shadow, animation)
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
-  scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들)
+  scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들),
+                   personView.ts(캐릭터 플러그인 생성)
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
+  demos/walk/      WalkDemo.tsx — 클릭 지점에 캐릭터 배치·조작
   ui/              Panel
 ```
 
@@ -154,11 +157,15 @@ src/
     필요하면 Shader 티어에서 커스텀 라이트 Descriptor를 작성해야 합니다.
 
 13. **`preRender`는 렌더 직전에만 emit됩니다.** 연속 애니메이션에는 `ViewProvider`에
-    `animation`이 필요합니다(없으면 변화가 있을 때만 렌더). 그리고 **숨겨진 탭에서는
-    requestAnimationFrame이 0회/초**라 프레임 자체가 돌지 않습니다 — 브라우저 자동화로
-    테스트할 때 애니메이션이 멈춰 보이면 코드가 아니라 이것부터 의심하세요
-    (`document.visibilityState`로 확인). 그럴 때는 시뮬레이션을 수동으로 step시킨 뒤
-    스크린샷으로 한 프레임을 유도해 검증할 수 있습니다.
+    `animation`이 필요합니다(없으면 변화가 있을 때만 렌더).
+
+    그리고 **숨겨진 탭에서는 requestAnimationFrame이 0회/초**라 프레임 자체가 돌지
+    않습니다(`document.visibilityState`로 확인). 프레임이 없으면 애니메이션뿐 아니라
+    **카메라 행렬도 갱신되지 않아 화면 좌표 → 지도 좌표 피킹이 축퇴된 값을 돌려주고**
+    (`click` 이벤트의 `map`이 남극으로 나옴), `camera.positionGeographic`은
+    "Invariant failed"로 던집니다. 브라우저 자동화 테스트에서 이런 증상이 보이면
+    코드가 아니라 이것부터 의심하세요. 검증은 시뮬레이션을 수동으로 step시키거나
+    좌표를 직접 주입한 뒤 스크린샷으로 한 프레임을 유도하는 식으로 우회합니다.
 
 14. **Navara의 `Color`는 three의 Color가 아닙니다.** `@navaramap/three`가 자체 Color를
     export하며(sRGB/선형 변환이 명시적) 인자 있는 생성자가 없습니다.
@@ -168,6 +175,22 @@ src/
 15. **개별 Descriptor 타입이 필요하면 `@navaramap/three-default-descs`를 직접
     의존성에 추가해야 합니다.** `@navaramap/three-default-plugin`이 전이 의존으로 갖고
     있지만 pnpm에서는 직접 import할 수 없습니다.
+
+16. **`PersonViewPlugin`은 `view.init()` 전에 등록해야 하지만 배치는 이후에 합니다.**
+    App에서 생성해 `ViewProvider`의 `plugins`로 넘기고, 실제 위치는 `teleport()` +
+    `start()`로 정합니다(`startLng`/`startLat`는 생성자 전용이라 나중에 못 바꿉니다).
+    `stop()`은 카메라와 키 입력만 반납하며 **모델은 놓인 자리에 그대로 남습니다** —
+    다른 데모로 전환해도 캐릭터는 사라지지 않습니다.
+
+    캐릭터 모델은 init 단계에서 받아오므로 **모델 URL이 죽으면 view 초기화 자체가 실패해
+    앱 전체가 뜨지 않습니다.** 현재는 Khronos glTF Sample Assets의 Fox를
+    raw.githubusercontent.com에서 직접 받습니다(CORS `*`). 운영에 쓸 때는 로컬 자산으로
+    옮기세요.
+
+17. **화면 클릭 → 지도 좌표는 `click` 이벤트의 `event.map`(ECEF)입니다.** 엔진은
+    `clientX/clientY`에서 캔버스 rect를 빼 계산합니다. 이 값은 **타원체 표면** 교점이라
+    지형 고도가 아니므로, 캐릭터를 지면에 놓으려면 위경도로 변환한 뒤
+    (`vector3ToGeodetic`) `sampleTerrainMostDetailed`로 표고를 따로 구해야 합니다.
 
 ## 알려진 이슈
 

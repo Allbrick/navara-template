@@ -17,6 +17,9 @@ importers:
       '@navaramap/three-default-plugin':
         specifier: ^0.1.1
         version: 0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1)
+      '@navaramap/three-plugins':
+        specifier: 0.1.1
+        version: 0.1.1(@navaramap/three-default-plugin@0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(three@0.185.1)
       '@navaramap/three-react':
         specifier: ^0.1.1
         version: 0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(react@19.2.8)(three@0.185.1)
@@ -103,6 +106,13 @@ packages:
     resolution: {integrity: sha512-vxpHfVlcg07QAXBi/lC+Y9Td1tmOUs9wOXvG0Z1LQbMPM2BEQdb+lNVJnHsD870jeoP0YzVcjUjrEC3BH6+tvQ==}
     peerDependencies:
       '@navaramap/three': 0.1.1
+
+  '@navaramap/three-plugins@0.1.1':
+    resolution: {integrity: sha512-5dZr7s1LMn/3vtqo/39jNKt0ylKiD+KTKhfrzudcXZU+x7JzYjLQcCl/qco94tQk0PDr/MCAK+rvRUVK4g4kyQ==}
+    peerDependencies:
+      '@navaramap/three': 0.1.1
+      '@navaramap/three-default-plugin': 0.1.1
+      three: '>=0.183.0'
 
   '@navaramap/three-react@0.1.1':
     resolution: {integrity: sha512-XIvuVV/b79CbxnxgsqQ1UDiGSqppL769iYsCxZVazM20Rt2USWZrpCTIpjtc3Uw6BBZM7h9YoxJI0ZLmke9ZYA==}
@@ -989,6 +999,12 @@ snapshots:
       - postprocessing
       - react
       - three
+
+  '@navaramap/three-plugins@0.1.1(@navaramap/three-default-plugin@0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(three@0.185.1)':
+    dependencies:
+      '@navaramap/three': 0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1)
+      '@navaramap/three-default-plugin': 0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1)
+      three: 0.185.1
 
   '@navaramap/three-react@0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(react@19.2.8)(three@0.185.1)':
     dependencies:

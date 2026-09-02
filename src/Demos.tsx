@@ -1,21 +1,25 @@
 import type { DefaultPlugin } from "@navaramap/three-default-plugin";
+import type { PersonViewPlugin } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
 import { useEffect, useState } from "react";
 
 import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
+import { WalkDemo } from "./demos/walk/WalkDemo";
 import { BaseLayers } from "./scene/BaseLayers";
 import { PhotorealScene } from "./scene/PhotorealScene";
 
 const DEMOS = [
   { id: "sunrise", label: "일출" },
   { id: "fireworks", label: "불꽃놀이" },
+  { id: "walk", label: "탐방" },
 ] as const;
 
 type DemoId = (typeof DEMOS)[number]["id"];
 
 type Props = {
-  plugin: DefaultPlugin;
+  defaultPlugin: DefaultPlugin;
+  personView: PersonViewPlugin;
 };
 
 /**
@@ -25,7 +29,7 @@ type Props = {
  * effect가 옵션 객체 신원 변화로 재실행되면서 경고를 출력한다. 상태를
  * Provider 안쪽에 두어 그 경로를 막는다.
  */
-export function Demos({ plugin }: Props) {
+export function Demos({ defaultPlugin, personView }: Props) {
   const [demo, setDemo] = useState<DemoId>("sunrise");
   const { view } = useViewContext();
 
@@ -37,7 +41,7 @@ export function Demos({ plugin }: Props) {
 
   return (
     <>
-      <PhotorealScene plugin={plugin} />
+      <PhotorealScene plugin={defaultPlugin} />
       <BaseLayers />
 
       <nav className="tabs">
@@ -53,7 +57,9 @@ export function Demos({ plugin }: Props) {
         ))}
       </nav>
 
-      {demo === "sunrise" ? <SunriseAnalysis /> : <FireworksAnalysis />}
+      {demo === "sunrise" && <SunriseAnalysis />}
+      {demo === "fireworks" && <FireworksAnalysis />}
+      {demo === "walk" && <WalkDemo personView={personView} />}
     </>
   );
 }
