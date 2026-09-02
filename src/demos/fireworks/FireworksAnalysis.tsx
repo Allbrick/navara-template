@@ -13,9 +13,10 @@ import { TERRAIN_SOURCE_ID } from "../../constants";
 import { Panel } from "../../ui/Panel";
 import {
   BURST_HEIGHT_M,
-  LAUNCH_BASE_HEIGHT_M,
-  LAUNCH_SITE,
+  BURST_POINTS,
+  LAUNCH_CENTER,
   VIEWPOINTS,
+  type LaunchSite,
   type Viewpoint,
 } from "./constants";
 import { FireworksScene } from "./FireworksScene";
@@ -23,15 +24,14 @@ import { FireworksScene } from "./FireworksScene";
 /** 불꽃놀이는 야간 씬이 전제다. */
 const NIGHT_SOLAR_TIME = 20.5;
 
-/** 폭발 지점 (해발 기준). */
-const BURST_POINT = {
-  ...LAUNCH_SITE,
-  height: LAUNCH_BASE_HEIGHT_M + BURST_HEIGHT_M,
-};
+/** 한 관측지에서 본 발사 지점 하나에 대한 판정. */
+type SiteResult = LineOfSight & { site: LaunchSite };
 
-type Result = LineOfSight & {
+type Result = {
   viewpoint: Viewpoint;
   groundHeightM: number;
+  /** 발사 지점별 판정. 가까운 순으로 정렬한다. */
+  sites: SiteResult[];
 };
 
 type Props = {
@@ -41,9 +41,14 @@ type Props = {
 /**
  * 불꽃놀이 분석 데모.
  *
- * 여의도 상공의 폭발 지점을 여러 관측 후보지에서 볼 수 있는지 판정한다.
+ * 여의도 상공 두 발사 지점의 폭발을 여러 관측 후보지에서 볼 수 있는지 판정한다.
  * 일출 분석의 지형 차폐 계산(`analysis/occlusion`)을 그대로 재사용한다 —
  * "특정 방위의 지형이 목표보다 높이 솟았는가"라는 문제가 동일하기 때문이다.
+ *
+ * 두 지점은 약 520m 떨어져 있어 먼 관측지에서는 거의 같이 보이지만, 가까운
+ * 관측지에서는 거리·고도각이 눈에 띄게 다르고 한쪽만 가릴 수도 있다. 그래서
+ * 지점별로 따로 판정하고, 표에는 가까운 쪽 기준값과 어느 쪽이 보이는지를 함께
+ * 보여준다.
  */
 export function FireworksAnalysis({ personView }: Props) {
   const { view } = useViewContext();
@@ -54,13 +59,13 @@ export function FireworksAnalysis({ personView }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 야간 씬으로 전환하고, 폭발 지점이 보이는 위치에서 시작한다.
+  // 야간 씬으로 전환하고, 두 발사 지점이 함께 보이는 위치에서 시작한다.
   useEffect(() => {
-    view.atmosphere.setSolarTime({ lng: LAUNCH_SITE.lng }, NIGHT_SOLAR_TIME);
+    view.atmosphere.setSolarTime({ lng: LAUNCH_CENTER.lng }, NIGHT_SOLAR_TIME);
     view.setCamera({
-      lng: LAUNCH_SITE.lng,
-      lat: LAUNCH_SITE.lat - 0.02,
-      height: 700,
+      lng: LAUNCH_CENTER.lng,
+      lat: LAUNCH_CENTER.lat - 0.022,
+      height: 800,
       heading: 0,
       pitch: -8,
       roll: 0,
@@ -93,8 +98,15 @@ export function FireworksAnalysis({ personView }: Props) {
           lat: viewpoint.lat,
           height: ground + viewpoint.eyeOffsetM,
         };
-        const los = await checkLineOfSight(observer, BURST_POINT, sample);
-        collected.push({ ...los, viewpoint, groundHeightM: ground });
+
+        const sites: SiteResult[] = [];
+        for (const burst of BURST_POINTS) {
+          const los = await checkLineOfSight(observer, burst, sample);
+          sites.push({ ...los, site: burst.site });
+        }
+        sites.sort((a, b) => a.groundDistanceM - b.groundDistanceM);
+
+        collected.push({ viewpoint, groundHeightM: ground, sites });
       }
 
       if (collected.length === 0) {
@@ -102,7 +114,9 @@ export function FireworksAnalysis({ personView }: Props) {
         return;
       }
 
-      collected.sort((a, b) => a.groundDistanceM - b.groundDistanceM);
+      collected.sort(
+        (a, b) => a.sites[0].groundDistanceM - b.sites[0].groundDistanceM,
+      );
       setResults(collected);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -114,6 +128,7 @@ export function FireworksAnalysis({ personView }: Props) {
   /**
    * 해당 관측지에 캐릭터를 세우고 폭발 지점을 올려다보게 한다.
    *
+   * 조준 대상은 보이는 지점 중 가까운 쪽, 둘 다 가려지면 그냥 가까운 쪽이다.
    * 방위·고도각은 표에 쓰인 분석값(관측 높이 기준)이 아니라 **캐릭터의 실제 눈높이**
    * 에서 다시 계산한다. collision이 ground라 캐릭터는 지형 표면에 붙으므로,
    * 남산 전망대처럼 eyeOffset이 큰 지점은 분석 관측점과 높이가 달라진다.
@@ -121,12 +136,16 @@ export function FireworksAnalysis({ personView }: Props) {
   const goTo = useCallback(
     (result: Result) => {
       const { lng, lat } = result.viewpoint;
+      const target = result.sites.find((s) => s.clear) ?? result.sites[0];
+      const burst = BURST_POINTS.find((b) => b.site.id === target.site.id);
+      if (!burst) return;
+
       const eye = {
         lng,
         lat,
         height: result.groundHeightM + personView.getFpvHeightOffset(),
       };
-      const sighting = sightTarget(eye, BURST_POINT);
+      const sighting = sightTarget(eye, burst);
 
       personView.teleport({
         lng,
@@ -157,7 +176,7 @@ export function FireworksAnalysis({ personView }: Props) {
       <Panel title="불꽃놀이 분석 — 여의도">
         <p className="note">
           여의도 상공 {BURST_HEIGHT_M}m 폭발을 각 관측 후보지에서 볼 수 있는지
-          지형 차폐로 판정합니다.
+          지형 차폐로 판정합니다. 발사 지점은 A·B 두 곳입니다.
         </p>
 
         <button type="button" onClick={analyze} disabled={busy}>
@@ -177,20 +196,29 @@ export function FireworksAnalysis({ personView }: Props) {
               </tr>
             </thead>
             <tbody>
-              {results.map((r) => (
-                <tr
-                  key={r.viewpoint.id}
-                  onClick={() => goTo(r)}
-                  aria-selected={selected === r.viewpoint.id}
-                >
-                  <td>{r.viewpoint.name}</td>
-                  <td>{(r.groundDistanceM / 1000).toFixed(1)}km</td>
-                  <td>{r.elevationDeg.toFixed(1)}°</td>
-                  <td className={r.clear ? "good" : "bad"}>
-                    {r.clear ? "보임" : "가림"}
-                  </td>
-                </tr>
-              ))}
+              {results.map((r) => {
+                const nearest = r.sites[0];
+                // 판정은 거리순으로 하지만 표기는 A·B 고정 순서가 읽기 쉽다.
+                const visible = r.sites
+                  .filter((s) => s.clear)
+                  .sort((a, b) => a.site.id.localeCompare(b.site.id));
+                return (
+                  <tr
+                    key={r.viewpoint.id}
+                    onClick={() => goTo(r)}
+                    aria-selected={selected === r.viewpoint.id}
+                  >
+                    <td>{r.viewpoint.name}</td>
+                    <td>{(nearest.groundDistanceM / 1000).toFixed(1)}km</td>
+                    <td>{nearest.elevationDeg.toFixed(1)}°</td>
+                    <td className={visible.length > 0 ? "good" : "bad"}>
+                      {visible.length === 0
+                        ? "가림"
+                        : visible.map((s) => s.site.label).join("·")}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -203,9 +231,10 @@ export function FireworksAnalysis({ personView }: Props) {
 
         {results && (
           <p className="note">
-            행을 누르면 그 관측지에 캐릭터가 서서 폭발 지점을 올려다봅니다.
-            W/S·A/D로 이동, V로 3인칭 전환. 표고가 SRTM 계열이라 도심 구간은
-            건물이 포함된 표면모델로 동작합니다.
+            거리·고도각은 가까운 발사 지점 기준이고, 가시 칸은 실제로 보이는
+            지점입니다(A·B / A / B / 가림). 행을 누르면 그 관측지에 캐릭터가 서서
+            폭발 지점을 올려다봅니다. 표고가 SRTM 계열이라 도심 구간은 건물이
+            포함된 표면모델로 동작합니다.
           </p>
         )}
       </Panel>

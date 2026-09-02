@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
-import { LAUNCH_SITE, VIEWPOINTS } from "./demos/fireworks/constants";
+import { LAUNCH_SITES, VIEWPOINTS } from "./demos/fireworks/constants";
 import { SUNRISE_VIEWPOINTS } from "./demos/sunrise/constants";
 import { WalkDemo, type Destination } from "./demos/walk/WalkDemo";
 import { BaseLayers } from "./scene/BaseLayers";
@@ -67,13 +67,13 @@ export function Demos({ defaultPlugin, personView }: Props) {
         lng: v.lng,
         lat: v.lat,
       })),
-      {
-        id: "fireworks-launch",
+      ...LAUNCH_SITES.map((site) => ({
+        id: `fireworks-launch-${site.id}`,
         group: "불꽃놀이 관측지",
-        name: "여의도 발사 지점",
-        lng: LAUNCH_SITE.lng,
-        lat: LAUNCH_SITE.lat,
-      },
+        name: site.name,
+        lng: site.lng,
+        lat: site.lat,
+      })),
     ],
     [],
   );

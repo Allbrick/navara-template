@@ -24,5 +24,5 @@ export const SUNRISE_VIEWPOINTS: SunriseViewpoint[] = [
   { id: "namsan", name: "남산 N서울타워", lng: 126.9882, lat: 37.5512 },
   { id: "bugak", name: "북악스카이웨이 팔각정", lng: 126.981, lat: 37.601 },
   { id: "ansan", name: "안산 봉수대", lng: 126.946, lat: 37.5765 },
-  { id: "haneul", name: "하늘공원", lng: 126.8785, lat: 37.571 },
+  { id: "haneul", name: "하늘공원", lng: 126.8765, lat: 37.573 },
 ];
