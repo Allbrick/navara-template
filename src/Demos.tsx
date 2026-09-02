@@ -12,13 +12,13 @@ import { Clouds, type CloudQuality } from "./scene/Clouds";
 import { PhotorealScene } from "./scene/PhotorealScene";
 import { SceneControls } from "./ui/SceneControls";
 
-const DEMOS = [
+/** 서로 배타적인 분석 데모. 한 번에 하나만 활성화된다. */
+const ANALYSES = [
   { id: "sunrise", label: "일출" },
   { id: "fireworks", label: "불꽃놀이" },
-  { id: "walk", label: "탐방" },
 ] as const;
 
-type DemoId = (typeof DEMOS)[number]["id"];
+type AnalysisId = (typeof ANALYSES)[number]["id"];
 
 type Props = {
   defaultPlugin: DefaultPlugin;
@@ -26,14 +26,19 @@ type Props = {
 };
 
 /**
- * ViewProvider 내부에서 데모 전환 상태를 갖는다.
+ * ViewProvider 내부에서 모드 상태를 갖는다.
  *
  * 이 상태를 App에 두면 ViewProvider가 리렌더되고, ViewProvider의 초기화
  * effect가 옵션 객체 신원 변화로 재실행되면서 경고를 출력한다. 상태를
  * Provider 안쪽에 두어 그 경로를 막는다.
+ *
+ * 모드는 두 축이다. **분석**(일출/불꽃놀이)은 서로 배타적이고, **탐방**은 그와
+ * 무관하게 켜고 끈다 — 분석 패널을 띄워둔 채로 현장을 걸어다닐 수 있다.
  */
 export function Demos({ defaultPlugin, personView }: Props) {
-  const [demo, setDemo] = useState<DemoId>("sunrise");
+  const [analysis, setAnalysis] = useState<AnalysisId>("sunrise");
+  const [walking, setWalking] = useState(false);
+
   // 배경지도·하늘은 데모와 무관한 씬 전체 설정이라 여기서 들고 공유한다.
   const [basemap, setBasemap] = useState<BasemapId>("satellite");
   const [cloudCoverage, setCloudCoverage] = useState(0.3);
@@ -49,23 +54,44 @@ export function Demos({ defaultPlugin, personView }: Props) {
     });
   }, [view, personView]);
 
+  /**
+   * 카메라 반납은 여기서 일원화한다. 분석을 바꾸거나 탐방을 끄면 카메라를 view에
+   * 돌려준다. 탐방 중에는 분석을 바꿔도 계속 걸어다닐 수 있어야 하므로 그대로 둔다.
+   * (각 분석 패널의 "관람 종료" 버튼은 사용자가 직접 멈추는 별개 경로다.)
+   */
+  useEffect(() => {
+    if (!walking) personView.stop();
+  }, [analysis, walking, personView]);
+
   return (
     <>
       <PhotorealScene plugin={defaultPlugin} />
       <BaseLayers basemap={basemap} />
       <Clouds coverage={cloudCoverage} quality={cloudQuality} />
 
-      <nav className="tabs">
-        {DEMOS.map(({ id, label }) => (
+      <nav className="modes">
+        <div className="tabs" role="group" aria-label="분석">
+          {ANALYSES.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={analysis === id}
+              onClick={() => setAnalysis(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="tabs standalone">
           <button
-            key={id}
             type="button"
-            aria-pressed={demo === id}
-            onClick={() => setDemo(id)}
+            aria-pressed={walking}
+            onClick={() => setWalking((on) => !on)}
           >
-            {label}
+            탐방 {walking ? "종료" : "시작"}
           </button>
-        ))}
+        </div>
       </nav>
 
       <SceneControls
@@ -77,9 +103,13 @@ export function Demos({ defaultPlugin, personView }: Props) {
         onQualityChange={setCloudQuality}
       />
 
-      {demo === "sunrise" && <SunriseAnalysis personView={personView} />}
-      {demo === "fireworks" && <FireworksAnalysis personView={personView} />}
-      {demo === "walk" && <WalkDemo personView={personView} />}
+      <div className="panel-stack">
+        {analysis === "sunrise" && <SunriseAnalysis personView={personView} />}
+        {analysis === "fireworks" && (
+          <FireworksAnalysis personView={personView} />
+        )}
+        {walking && <WalkDemo personView={personView} />}
+      </div>
     </>
   );
 }

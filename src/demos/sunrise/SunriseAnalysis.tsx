@@ -75,9 +75,9 @@ export function SunriseAnalysis({ personView }: Props) {
     setAnalysis(null);
     setError(null);
     setWatching(false);
-    personView.stop();
 
     // 해가 뜨는 동쪽을 바라보도록 지점 서쪽 상공에 카메라를 둔다.
+    // 탐방 중이면 person view가 다음 프레임에 카메라를 다시 가져가므로 무해하다.
     view.setCamera({
       lng: viewpoint.lng - 0.025,
       lat: viewpoint.lat,
@@ -86,7 +86,7 @@ export function SunriseAnalysis({ personView }: Props) {
       pitch: -15,
       roll: 0,
     });
-  }, [view, personView, viewpoint]);
+  }, [view, viewpoint]);
 
   // 슬라이더 값 → 태양시. atmosphere.date가 바뀌면 하늘·태양광·그림자가 함께 갱신된다.
   useEffect(() => {
@@ -200,9 +200,6 @@ export function SunriseAnalysis({ personView }: Props) {
     personView.stop();
     setWatching(false);
   }, [personView]);
-
-  // 다른 데모로 넘어갈 때 카메라를 view에 돌려준다.
-  useEffect(() => () => personView.stop(), [personView]);
 
   const horizon = analysis ? interpolateHorizon(analysis.profile, azimuth) : null;
   const ridge = analysis?.profile.get(

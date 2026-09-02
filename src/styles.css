@@ -27,12 +27,24 @@ body,
   height: 100%;
 }
 
-.tabs {
+.modes {
   position: absolute;
   top: 16px;
   left: 16px;
   display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tabs {
+  display: flex;
   gap: 4px;
+}
+
+/* 분석 탭과 시각적으로 끊어, 탐방이 별개 축임을 드러낸다. */
+.modes .standalone {
+  padding-left: 16px;
+  border-left: 1px solid #ffffff33;
 }
 
 .tabs button {
@@ -49,12 +61,25 @@ body,
   color: #0a0a0f;
 }
 
-.panel {
+.panel-stack {
   position: absolute;
   top: 64px;
+  bottom: 16px;
   left: 16px;
   width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  /* 패널 사이 여백으로 지도를 집을 수 있게 한다. */
+  pointer-events: none;
+}
+
+.panel {
+  flex: 0 0 auto;
+  width: 100%;
   padding: 16px;
+  pointer-events: auto;
   border: 1px solid #ffffff22;
   border-radius: 10px;
   background: #0a0a0fdd;

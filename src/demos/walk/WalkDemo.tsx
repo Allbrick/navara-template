@@ -3,7 +3,7 @@ import type { PersonViewPlugin, PersonViewState } from "@navaramap/three-plugins
 import { useViewContext } from "@navaramap/three-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { INITIAL_CAMERA, TERRAIN_SOURCE_ID } from "../../constants";
+import { TERRAIN_SOURCE_ID } from "../../constants";
 import { Panel } from "../../ui/Panel";
 import { Vector3 } from "three";
 
@@ -20,11 +20,15 @@ const CONTROLS: [string, string][] = [
 ];
 
 /**
- * 지점 선택 → 캐릭터 배치 → 조작 데모.
+ * 지점 선택 → 캐릭터 배치 → 조작.
  *
  * 지도를 클릭하면 그 지점의 지형 표고를 샘플링해 캐릭터를 텔레포트시키고
  * 시점을 3인칭으로 넘긴다. 클릭할 때마다 다시 배치되므로 지점을 바꿔가며
  * 돌아다닐 수 있다.
+ *
+ * 분석 데모와 독립적으로 켜고 끈다. 켜는 것만으로는 카메라를 건드리지 않고,
+ * 사용자가 지도를 클릭한 시점부터 시점을 가져간다 — 분석에서 맞춰 둔 시점을
+ * 탐방을 켰다는 이유만으로 잃지 않게 하기 위해서다.
  */
 export function WalkDemo({ personView }: Props) {
   const { view } = useViewContext();
@@ -34,11 +38,6 @@ export function WalkDemo({ personView }: Props) {
   const [active, setActive] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 배치 전에는 지점을 고르기 좋게 광역 조망에서 시작한다.
-  useEffect(() => {
-    view.setCamera(INITIAL_CAMERA);
-  }, [view]);
 
   // 클릭 지점에 캐릭터를 배치한다.
   useEffect(() => {
@@ -78,9 +77,6 @@ export function WalkDemo({ personView }: Props) {
   }, [view, personView]);
 
   useEffect(() => personView.onStateChange(setState), [personView]);
-
-  // 다른 데모로 넘어갈 때 카메라를 view에 돌려준다.
-  useEffect(() => () => personView.stop(), [personView]);
 
   const toggleActive = useCallback(() => {
     if (active) {

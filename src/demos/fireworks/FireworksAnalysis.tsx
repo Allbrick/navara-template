@@ -150,9 +150,6 @@ export function FireworksAnalysis({ personView }: Props) {
     setWatching(false);
   }, [personView]);
 
-  // 다른 데모로 넘어갈 때 카메라를 view에 돌려준다.
-  useEffect(() => () => personView.stop(), [personView]);
-
   return (
     <>
       <FireworksScene />
