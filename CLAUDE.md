@@ -17,6 +17,8 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 목표보다 높이 솟았는가"라는 동일한 문제이기 때문이다. 불꽃놀이와 탐방은
 `PersonViewPlugin`도 공유한다(App에서 하나만 만들어 내려보낸다).
 
+하늘(구름)은 데모와 무관한 씬 전체 설정이라 `Demos`가 상태를 들고 공유한다.
+
 남은 과제: 일몰/박명 시각, 능선 프로파일 시각화, 지도 클릭으로 임의 지점 분석
 (현재 일출은 목록 선택, 탐방은 클릭), 불꽃 폭발의 주변 조명(아래 11번 참고).
 
@@ -95,13 +97,13 @@ src/
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
   scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들),
-                   personView.ts(캐릭터 플러그인 생성)
+                   Clouds.tsx(볼류메트릭 구름), personView.ts(캐릭터 플러그인 생성)
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
   demos/walk/      WalkDemo.tsx — 클릭 지점에 캐릭터 배치·조작
-  ui/              Panel
+  ui/              Panel, SkyControls(구름 양 — 데모 공통)
 ```
 
 ## 구현 시 주의점 (실제로 부딪힌 것들)
@@ -211,6 +213,17 @@ src/
     훑어서 이 경우를 놓치고 "능선에 계속 가림"으로 잘못 보고했습니다(안산 봉수대,
     능선 −0.07°). 지금은 `searchBackHours`만큼 이전부터 탐색하며, 지연이 음수로도
     나올 수 있으므로 표기 시 부호를 처리해야 합니다.
+
+21. **구름은 `addDefaultPhotorealScene()`에 포함되지 않습니다.** `CloudsConfig`
+    이펙트를 따로 추가해야 하며(`scene/Clouds.tsx`), 구름 양은 `clouds.coverage`
+    (0~1)입니다. 품질은 `qualityPreset`: `low | medium | high | ultra`.
+
+    레이마칭이라 프레임 비용이 큽니다. coverage가 0이면 세기만 0으로 두지 말고
+    **이펙트를 언마운트**해 패스 자체를 파이프라인에서 빼세요. 그리고 화면은
+    **여러 프레임에 걸쳐 수렴**합니다(블루노이즈 시간 누적) — 한 프레임만 렌더되는
+    상황(숨겨진 탭 스크린샷 등)에서는 얼룩덜룩하게 보이는 것이 정상입니다.
+    텍스처(`local_weather.png`, `shape.bin`, `stbn.bin` 등 약 4MB)는 이펙트를 처음
+    켤 때 받아옵니다.
 
 ## 알려진 이슈
 

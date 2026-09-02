@@ -7,7 +7,9 @@ import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
 import { WalkDemo } from "./demos/walk/WalkDemo";
 import { BaseLayers } from "./scene/BaseLayers";
+import { Clouds, type CloudQuality } from "./scene/Clouds";
 import { PhotorealScene } from "./scene/PhotorealScene";
+import { SkyControls } from "./ui/SkyControls";
 
 const DEMOS = [
   { id: "sunrise", label: "일출" },
@@ -31,6 +33,9 @@ type Props = {
  */
 export function Demos({ defaultPlugin, personView }: Props) {
   const [demo, setDemo] = useState<DemoId>("sunrise");
+  // 하늘은 데모와 무관한 씬 전체 설정이라 여기서 들고 공유한다.
+  const [cloudCoverage, setCloudCoverage] = useState(0.3);
+  const [cloudQuality, setCloudQuality] = useState<CloudQuality>("medium");
   const { view } = useViewContext();
 
   // 개발 중 콘솔에서 엔진 API를 직접 두드려 보기 위한 핸들.
@@ -46,6 +51,7 @@ export function Demos({ defaultPlugin, personView }: Props) {
     <>
       <PhotorealScene plugin={defaultPlugin} />
       <BaseLayers />
+      <Clouds coverage={cloudCoverage} quality={cloudQuality} />
 
       <nav className="tabs">
         {DEMOS.map(({ id, label }) => (
@@ -59,6 +65,13 @@ export function Demos({ defaultPlugin, personView }: Props) {
           </button>
         ))}
       </nav>
+
+      <SkyControls
+        coverage={cloudCoverage}
+        onCoverageChange={setCloudCoverage}
+        quality={cloudQuality}
+        onQualityChange={setCloudQuality}
+      />
 
       {demo === "sunrise" && <SunriseAnalysis personView={personView} />}
       {demo === "fireworks" && <FireworksAnalysis personView={personView} />}

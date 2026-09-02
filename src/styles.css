@@ -176,3 +176,59 @@ body,
 .panel label + label {
   margin-top: 12px;
 }
+
+.sky-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 210px;
+  padding: 12px 14px;
+  border: 1px solid #ffffff22;
+  border-radius: 10px;
+  background: #0a0a0fdd;
+  color: #eee;
+  backdrop-filter: blur(8px);
+}
+
+.sky-controls label {
+  display: block;
+  font-size: 13px;
+}
+
+.sky-controls label + label {
+  margin-top: 10px;
+}
+
+.sky-controls span {
+  display: block;
+}
+
+.sky-controls small {
+  color: #ffffff88;
+}
+
+.sky-controls input[type="range"] {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.sky-controls select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 6px;
+  border: 1px solid #ffffff33;
+  border-radius: 6px;
+  background: #ffffff14;
+  color: #eee;
+  font: inherit;
+  font-size: 12px;
+}
+
+.sky-controls select:disabled {
+  opacity: 0.5;
+}
+
+.sky-controls select option {
+  background: #0a0a0f;
+  color: #eee;
+}
