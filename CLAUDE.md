@@ -9,11 +9,11 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 
 | 데모 | 내용 | 활용할 Navara 특성 | 상태 |
 |------|------|--------------------|------|
-| 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 그림자 | 기본 동작 (태양시 슬라이더 + 일출 시각 계산) |
+| 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 샘플링 | 동작 (태양시 슬라이더, 일출 시각, 지형 차폐 판정) |
 | 불꽃놀이 분석 | 야간 씬에서 불꽃 발광 및 관측 시뮬레이션 | 커스텀 라이트/이펙트, 포스트프로세싱, 셰이더 | 미구현 (야간 전환만) |
 
-일출 분석의 남은 과제: 지형 차폐 판정(현재 고도는 수평선 기준이라 산에 가리는지 미반영),
-관측 지점 선택 UI, 일몰/박명 시각.
+일출 분석의 남은 과제: 관측 지점 선택 UI(현재 서울시청 고정), 일몰/박명 시각,
+능선 프로파일의 시각화.
 
 **중요: 이 리포지토리는 Navara를 *사용하는* 쪽입니다.** Navara 리포지토리의 README에 나오는
 `cargo make dev`, `cargo make prepare`, `wasm-bindgen-cli` 설치 등은 **엔진 자체를 빌드**하는 명령이므로
@@ -89,7 +89,7 @@ src/
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
   scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들)
-  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(순수 계산)
+  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + occlusion.ts(지형 차폐)
   demos/fireworks/ FireworksAnalysis.tsx — 미구현 스텁
   ui/              Panel
 ```
@@ -120,6 +120,22 @@ src/
 7. **태양시 ≠ KST.** `setSolarTime`/`getSolarTime`은 경도 기준 진태양시입니다. 서울은
    KST 표준자오선보다 서쪽이라 약 32분 늦습니다. 사용자에게 보여줄 시각은
    `atmosphere.date`를 `Asia/Seoul`로 포맷하세요.
+
+8. **`atmosphere.sunDirection`은 렌더 프레임에서만 갱신됩니다.** `setSolarTime`으로
+   시각을 바꿔도 방위각은 직전 프레임 값에 고정되고 고도만 바뀝니다. 프레임 없이
+   도는 동기 탐색 루프에서 쓰면 **조용히 틀린 결과**가 나옵니다(에러도 경고도 없음).
+   방위각이 필요하면 `astronomy-engine`으로 `atmosphere.date`에서 직접 계산하세요
+   (`occlusion.ts`의 `sunAzimuthDeg`). 엔진 자체가 쓰는 라이브러리라 값이 일치하며,
+   중복 설치를 피하려고 버전을 2.1.19로 맞춰 직접 의존성에 넣었습니다.
+
+9. **`sampleTerrainMostDetailed`의 비용은 좌표 수가 아니라 콜드 타일 페치 수입니다.**
+   측정값: 동일한 500개 좌표가 콜드 23초 → 캐시 54ms. 넓은 범위를 훑을 때는
+   `options.level`로 낮은 줌을 고정하세요. 차폐 판정은 level 12(약 30m/px)로 충분하며
+   1.7초에 끝납니다. maxZoom인 14를 쓰면 타일 수가 수십 배로 늘어 수 분이 걸립니다.
+
+10. **Terrarium 표고는 도심에서 DSM처럼 동작합니다.** SRTM 계열이라 건물이 표고에
+    포함됩니다(서울시청 450m 동쪽이 65m로 관측점보다 24m 높게 나옴). 근거리 차폐가
+    지형이 아니라 건물일 수 있다는 점을 결과 해석 시 감안하세요.
 
 ## 알려진 이슈
 

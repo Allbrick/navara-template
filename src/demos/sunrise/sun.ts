@@ -60,6 +60,74 @@ export function findSunriseSolarTime(
   }
 }
 
+/**
+ * 지형 능선을 넘어 해가 실제로 보이기 시작하는 태양시를 구한다.
+ *
+ * 판정 기준이 고정된 0°가 아니라 시각에 따라 달라진다는 점만 다르다.
+ * 해가 뜨면서 방위각이 이동하므로, 매 시각의 태양 방위각에 해당하는 지평선
+ * 고도를 `horizonAt`으로 조회해 비교한다.
+ *
+ * `searchWindowHours` 안에서 교차점을 찾지 못하면 `null`(그 시간대에는 능선에
+ * 계속 가려짐).
+ */
+export function findSunriseOverTerrain(
+  sampler: SunSampler,
+  location: { lat: number; lng: number },
+  azimuthAt: () => number,
+  horizonAt: (azimuthDeg: number) => number | null,
+  startSolarTime: number,
+  searchWindowHours = 3,
+): number | null {
+  const originalDate = sampler.date;
+
+  // 태양 고도에서 그 방위각의 능선 고도를 뺀 값. 0을 넘는 순간이 실제 일출.
+  const marginAt = (hours: number) => {
+    sampler.setSolarTime({ lng: location.lng }, hours);
+    const horizon = horizonAt(azimuthAt());
+    if (horizon === null) return null;
+    return sampler.getSunElevation(location) - horizon;
+  };
+
+  try {
+    const step = 1 / 60; // 1분
+    let previousHours = startSolarTime;
+    let previousMargin = marginAt(previousHours);
+
+    for (
+      let h = startSolarTime + step;
+      h <= startSolarTime + searchWindowHours;
+      h += step
+    ) {
+      const margin = marginAt(h);
+      if (margin === null || previousMargin === null) {
+        previousHours = h;
+        previousMargin = margin;
+        continue;
+      }
+
+      if (previousMargin < 0 && margin >= 0) {
+        let lo = previousHours;
+        let hi = h;
+        for (let i = 0; i < BISECTION_ITERATIONS; i++) {
+          const mid = (lo + hi) / 2;
+          const midMargin = marginAt(mid);
+          if (midMargin === null) break;
+          if (midMargin < 0) lo = mid;
+          else hi = mid;
+        }
+        return (lo + hi) / 2;
+      }
+
+      previousHours = h;
+      previousMargin = margin;
+    }
+
+    return null;
+  } finally {
+    sampler.date = originalDate;
+  }
+}
+
 /** 엔진이 들고 있는 실제 시각(UTC 인스턴트)을 지정 시간대의 시:분으로 표기한다. */
 export function formatClockTime(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("ko-KR", {

@@ -5,7 +5,7 @@ import {
 import { Layer, useViewContext } from "@navaramap/three-react";
 import { useEffect, useMemo } from "react";
 
-import { INITIAL_CAMERA } from "../constants";
+import { INITIAL_CAMERA, TERRAIN_SOURCE_ID } from "../constants";
 
 /**
  * 서울 기준 베이스맵 + 지형.
@@ -47,6 +47,8 @@ export function BaseLayers() {
   const demSource = useMemo(
     () =>
       view.addSource({
+        // 고정 id를 부여해 일출 차폐 분석이 문자열 SourceRef로 참조할 수 있게 한다.
+        id: TERRAIN_SOURCE_ID,
         type: "raster-dem",
         url: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
         elevationDecoder: TERRARIUM_ELEVATION_DECODER(),

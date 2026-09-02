@@ -1,5 +1,6 @@
 import type { DefaultPlugin } from "@navaramap/three-default-plugin";
-import { useState } from "react";
+import { useViewContext } from "@navaramap/three-react";
+import { useEffect, useState } from "react";
 
 import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
@@ -26,6 +27,13 @@ type Props = {
  */
 export function Demos({ plugin }: Props) {
   const [demo, setDemo] = useState<DemoId>("sunrise");
+  const { view } = useViewContext();
+
+  // 개발 중 콘솔에서 엔진 API를 직접 두드려 보기 위한 핸들.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { view?: unknown }).view = view;
+  }, [view]);
 
   return (
     <>

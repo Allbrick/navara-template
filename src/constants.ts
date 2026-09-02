@@ -5,6 +5,15 @@ export const SEOUL = {
 } as const;
 
 /**
+ * DEM 소스에 부여하는 고정 id. `sampleTerrainMostDetailed`가 SourceRef로
+ * 문자열 id를 받으므로, 소스 핸들을 컴포넌트 간에 전달할 필요가 없다.
+ */
+export const TERRAIN_SOURCE_ID = "terrain-dem";
+
+/** 관측자 눈높이 (m). 지형고 위에 더한다. */
+export const EYE_HEIGHT_M = 1.7;
+
+/**
  * 화면 표시용 시간대. 태양시는 경도 기준이라 KST와 다르다.
  * 서울(126.98°)은 KST 표준자오선(135°)보다 서쪽이므로 태양시가 약 32분 늦다.
  */

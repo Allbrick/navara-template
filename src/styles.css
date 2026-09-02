@@ -110,3 +110,16 @@ body,
   font-size: 12px;
   line-height: 1.5;
 }
+
+.panel .good {
+  color: #7ee787;
+}
+
+.panel .bad {
+  color: #ff9492;
+}
+
+.panel button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

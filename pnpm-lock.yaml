@@ -17,6 +17,9 @@ importers:
       '@navaramap/three-react':
         specifier: ^0.1.1
         version: 0.1.1(@navaramap/three@0.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1))(react@19.2.8)(three@0.185.1)
+      astronomy-engine:
+        specifier: 2.1.19
+        version: 2.1.19
       postprocessing:
         specifier: ^6.39.4
         version: 6.39.4(three@0.185.1)
