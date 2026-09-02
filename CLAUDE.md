@@ -188,8 +188,18 @@ src/
     메시 수는 늘지만 전부 인스턴싱이라 draw call만 늘고 인스턴스 총량은 그대로입니다.
 
 12. **기본 Descriptor에 PointLight가 없습니다** (`DefaultLightDescription`은 SunLight /
-    SkyLightProbe / AmbientLight / LightProbe뿐). 불꽃이 주변 지형을 비추는 표현이
-    필요하면 Shader 티어에서 커스텀 라이트 Descriptor를 작성해야 합니다.
+    SkyLightProbe / AmbientLight / LightProbe뿐). 그래서 폭발 지점에서 뻗어나가는
+    **방향성** 조명은 만들 수 없고, `FireworksScene`은 **AmbientLight의 색·세기를 매
+    프레임 조절해** 근사합니다 — 터질 때 야경 전체가 그 색으로 번쩍이는, 실제로 가장
+    눈에 띄는 부분입니다. 방향성이 꼭 필요하면 Shader 티어에서 커스텀 라이트
+    Descriptor를 쓰거나 `LightProbe`의 SH 계수를 직접 채워야 합니다.
+
+    조명 세기는 **기저광과 섬광을 따로 합산**해야 합니다. 한 덩어리로 더하면 살아있는
+    입자 수백 개의 기저값이 커서 상한에 상시 붙고(실측 67% 프레임) 정작 터지는 순간의
+    번쩍임이 묻힙니다. 분리 후에는 기저 0.08~0.14, 섬광 0.39로 약 4배 폭이 납니다.
+
+    `LightConfig`는 전부 선택 속성인 weak type이라 `{ ambient: ... }`만 넘기면
+    "no properties in common" 타입 에러가 납니다. `id`를 함께 주세요.
 
 13. **`preRender`는 렌더 직전에만 emit됩니다.** 연속 애니메이션에는 `ViewProvider`에
     `animation`이 필요합니다(없으면 변화가 있을 때만 렌더).
