@@ -13,16 +13,13 @@ import {
   LAUNCH_SITES,
   type LaunchSite,
 } from "./constants";
-import { DEFAULT_SIM_CONFIG, FireworksSim } from "./particles";
+import {
+  DEFAULT_SIM_CONFIG,
+  FireworksSim,
+  type Particle,
+} from "./particles";
 
-/**
- * 불꽃 색상.
- *
- * 색마다 별도의 InstancedSphereMesh를 만든다. 인스턴스별 `color`는 diffuse에만
- * 곱해지는데 야간 씬에는 비출 광원이 없어 아무 효과가 없고, 실제로 보이는 것은
- * emissive다. 그런데 emissiveColor는 메시 단위 공유라 인스턴스별로 줄 수 없다.
- * 따라서 색 = 메시로 나누는 것이 이 API에서 색을 표현하는 유일한 방법이다.
- */
+/** 불꽃 색상. */
 const PALETTE = [
   "#ff5964",
   "#ffb03a",
@@ -32,8 +29,52 @@ const PALETTE = [
   "#fff1c1",
 ];
 
-/** 발광 세기. 너무 높이면 블룸이 포화돼 색이 전부 흰색으로 날아간다. */
-const EMISSIVE_INTENSITY = 2.2;
+/**
+ * 밝기 단계.
+ *
+ * 인스턴스별 발광 세기를 줄 수 없어서(emissiveColor/Intensity는 메시 단위 공유)
+ * 단계마다 메시를 따로 만들고, 입자가 나이 들면 그 프레임의 인스턴스를 어두운
+ * 메시로 옮긴다. 크기 축소만으로 소멸을 표현하던 것보다 실제 연화의 감광에
+ * 가깝다. 메시 수는 색(6) × 단계(3) = 18개가 되지만 전부 인스턴싱이라
+ * draw call만 늘고 인스턴스 총량은 그대로다.
+ */
+const TIERS = [3.4, 1.7, 0.75];
+
+/** 입자 상태로 밝기 단계를 고른다. */
+function tierOf(p: Particle): number {
+  if (p.kind === "flash" || p.kind === "shell") return 0;
+  if (p.kind === "trail") return 2;
+
+  const remaining = FireworksSim.remaining(p);
+  if (remaining > 0.6) return 0;
+  if (remaining > 0.28) return 1;
+  return 2;
+}
+
+/** 화면에 그릴 반경. 종류마다 소멸하는 모양이 다르다. */
+function radiusOf(p: Particle): number {
+  const remaining = FireworksSim.remaining(p);
+  switch (p.kind) {
+    case "shell":
+      return p.radius;
+    case "flash":
+      // 섬광은 순간적으로 커졌다 사라진다.
+      return p.radius * Math.sin(Math.PI * (1 - remaining)) * 0.9 + p.radius * 0.3;
+    case "trail":
+      return p.radius * remaining;
+    default:
+      // 불꽃은 끝에서만 급히 줄어든다. 중간에는 밝기 단계가 감광을 맡는다.
+      return p.radius * Math.min(1, remaining * 2.2);
+  }
+}
+
+/** 색 × 밝기 단계 조합. 버킷 인덱스로 쓴다. */
+const LAYERS = PALETTE.flatMap((hex, color) =>
+  TIERS.map((intensity, tier) => ({ hex, color, tier, intensity })),
+);
+
+const layerIndex = (color: number, tier: number) =>
+  (color % PALETTE.length) * TIERS.length + tier;
 
 /**
  * 발사 지점 한 곳의 불꽃.
@@ -48,7 +89,7 @@ function FireworksBurst({ site, index }: { site: LaunchSite; index: number }) {
 
   const meshConfigs = useMemo(
     () =>
-      PALETTE.map((hex) => ({
+      LAYERS.map((layer) => ({
         geodetic: {
           lng: site.lng,
           lat: site.lat,
@@ -56,11 +97,12 @@ function FireworksBurst({ site, index }: { site: LaunchSite; index: number }) {
         },
         effectIds: [BLOOM_EFFECT_ID],
         spheres: {
-          widthSegments: 8,
-          heightSegments: 8,
-          color: new Color().setStyle(hex),
-          emissiveColor: new Color().setStyle(hex),
-          emissiveIntensity: EMISSIVE_INTENSITY,
+          // 입자가 많아 세그먼트를 낮게 잡는다. 멀리서 점으로 보이므로 충분하다.
+          widthSegments: 6,
+          heightSegments: 6,
+          color: new Color().setStyle(layer.hex),
+          emissiveColor: new Color().setStyle(layer.hex),
+          emissiveIntensity: layer.intensity,
           children: [] as SphereChildConfig[],
         },
       })),
@@ -87,14 +129,11 @@ function FireworksBurst({ site, index }: { site: LaunchSite; index: number }) {
 
       sim.step((t - previous) / 1000);
 
-      // 색 인덱스별로 인스턴스를 나눠 담는다.
-      const buckets: SphereChildConfig[][] = PALETTE.map(() => []);
+      const buckets: SphereChildConfig[][] = LAYERS.map(() => []);
       for (const p of sim.particles) {
-        const remaining = FireworksSim.remaining(p);
-        buckets[p.color % PALETTE.length].push({
+        buckets[layerIndex(p.color, tierOf(p))].push({
           position: { x: p.x, y: p.y, z: p.z },
-          // 인스턴스별 발광 감쇠가 불가능하므로 크기로 소멸을 표현한다.
-          radius: p.radius * (p.kind === "shell" ? 1 : remaining),
+          radius: radiusOf(p),
         });
       }
 
@@ -124,7 +163,7 @@ function FireworksBurst({ site, index }: { site: LaunchSite; index: number }) {
     <>
       {meshConfigs.map((config, i) => (
         <MeshDesc
-          key={`${site.id}-${PALETTE[i]}`}
+          key={`${site.id}-${LAYERS[i].hex}-${LAYERS[i].tier}`}
           config={config}
           onReady={makeOnReady(i)}
         />
@@ -149,9 +188,9 @@ export function FireworksScene() {
       id: BLOOM_EFFECT_ID,
       selectiveEffect: true as const,
       selectiveBloom: {
-        strength: 1.1,
-        radius: 0.55,
-        threshold: 0.2,
+        strength: 1.15,
+        radius: 0.6,
+        threshold: 0.18,
       },
     }),
     [],

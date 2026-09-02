@@ -110,7 +110,8 @@ src/
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
-                   particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
+                   particles.ts(순수 시뮬레이션 — 폭발 형태 6종, 잔광, 분열) +
+                   constants.ts(발사 지점·관측 후보지)
   demos/walk/      WalkDemo.tsx — 클릭 지점 또는 분석 지점 목록으로 캐릭터 배치·조작
   ui/              Panel, SceneControls(배경지도·구름 — 데모 공통)
 ```
@@ -177,11 +178,14 @@ src/
     포함됩니다(서울시청 450m 동쪽이 65m로 관측점보다 24m 높게 나옴). 근거리 차폐가
     지형이 아니라 건물일 수 있다는 점을 결과 해석 시 감안하세요.
 
-11. **인스턴스별 발광색은 불가능합니다.** `SphereChildConfig.color`는 diffuse에만
+11. **인스턴스별 발광은 불가능합니다.** `SphereChildConfig.color`는 diffuse에만
     곱해지는데, 야간 씬에는 비출 광원이 없어 아무 효과가 없습니다. 실제로 보이는 것은
-    `emissiveColor`인데 이것은 메시 단위 공유입니다. 그래서 `FireworksScene`은 **색마다
-    별도의 InstancedSphereMesh**를 만듭니다. 같은 이유로 입자의 소멸은 발광 감쇠가 아니라
-    반지름 축소로 표현합니다.
+    `emissiveColor`/`emissiveIntensity`인데 둘 다 메시 단위 공유입니다.
+
+    그래서 `FireworksScene`은 **색 × 밝기 단계 조합마다 메시를 하나씩** 만들고
+    (6색 × 3단계 = 18개), 입자가 나이 들면 그 프레임의 인스턴스를 더 어두운 메시로
+    옮깁니다. 이렇게 해야 크기 축소가 아니라 실제 감광으로 소멸을 표현할 수 있습니다.
+    메시 수는 늘지만 전부 인스턴싱이라 draw call만 늘고 인스턴스 총량은 그대로입니다.
 
 12. **기본 Descriptor에 PointLight가 없습니다** (`DefaultLightDescription`은 SunLight /
     SkyLightProbe / AmbientLight / LightProbe뿐). 불꽃이 주변 지형을 비추는 표현이
