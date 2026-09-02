@@ -102,17 +102,18 @@ Vite + React 19 + TypeScript. 스택 선택은 Navara 본체와 맞춘 것입니
 ```
 src/
   App.tsx          ViewProvider 설정 (canvas, plugins, shadow, animation)
+  models/          human.glb, pink.glb (캐릭터 모델)
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
   scene/           BaseLayers(베이스맵+지형), basemaps.ts(배경지도 정의),
                    PhotorealScene(하늘/태양/AA 번들), Clouds.tsx(볼류메트릭 구름),
-                   personView.ts(캐릭터 플러그인 생성)
+                   characters.ts(캐릭터 정의), personView.ts(플러그인 생성·표시)
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션 — 폭발 형태 6종, 잔광, 분열) +
                    constants.ts(발사 지점·관측 후보지)
-  demos/walk/      WalkDemo.tsx — 클릭 지점 또는 분석 지점 목록으로 캐릭터 배치·조작
+  demos/walk/      WalkDemo.tsx — 캐릭터 선택, 클릭/목록으로 배치·조작
   ui/              Panel, SceneControls(배경지도·구름 — 데모 공통)
 ```
 
@@ -240,27 +241,42 @@ src/
 16. **`PersonViewPlugin`은 `view.init()` 전에 등록해야 하지만 배치는 이후에 합니다.**
     App에서 생성해 `ViewProvider`의 `plugins`로 넘기고, 실제 위치는 `teleport()` +
     `start()`로 정합니다(`startLng`/`startLat`는 생성자 전용이라 나중에 못 바꿉니다).
-    `stop()`은 카메라와 키 입력만 반납하며 **모델은 놓인 자리에 그대로 남습니다** —
-    다른 데모로 전환해도 캐릭터는 사라지지 않습니다.
 
-    캐릭터 모델은 init 단계에서 받아오므로 **모델 URL이 죽으면 view 초기화 자체가 실패해
-    앱 전체가 뜨지 않습니다.** 현재는 Khronos glTF Sample Assets의 Fox를
-    raw.githubusercontent.com에서 직접 받습니다(CORS `*`). 운영에 쓸 때는 로컬 자산으로
-    옮기세요.
+    **`character`(모델)도 생성자 전용이라 런타임에 바꿀 수 없습니다.** 그래서 캐릭터를
+    여러 개 지원하려면 **캐릭터마다 플러그인 인스턴스를 만들어** 전부 init 전에 등록하고,
+    전환은 "이전 것 `stop()` → 새 것 `teleport()` + `start()`"로 처리합니다
+    (`scene/personView.ts`의 `createPersonViews`). 모델은 `start()` 시점에 로드되므로
+    쓰지 않는 캐릭터의 모델은 내려받지 않습니다.
 
-17. **캐릭터 배치 시 조준각은 분석값이 아니라 캐릭터 눈높이에서 다시 계산합니다.**
+    **`stop()`은 모델을 치우지 않습니다.** 카메라와 키 입력만 반납할 뿐이라, 캐릭터를
+    바꾸면 이전 모델이 그 자리에 계속 서 있습니다. `model.update({ visible })`로 직접
+    숨겨야 합니다(`setModelVisible`). 모델은 비동기 로드라 잠시 기다렸다 적용해야 합니다.
+
+17. **모델마다 애니메이션 클립 이름이 다릅니다.** Fox는 `Survey`/`Walk`/`Run`,
+    human.glb는 `Idle`/`Walk`/`Run`, pink.glb는 전부 소문자 `idle`/`walk`/`run`입니다.
+    이름이 하나만 틀려도 **그 동작만 조용히 재생되지 않으므로** 캐릭터 정의
+    (`scene/characters.ts`)에 함께 적어 둡니다. 모델을 추가할 때는 GLB의 JSON 청크에서
+    `animations[].name`을 먼저 확인하세요.
+
+    모델에 불필요한 노드가 딸려 오기도 합니다 — human.glb에는 12×12 바닥 평면(`Ground`)이
+    들어 있어 그대로 두면 캐릭터가 판때기를 끌고 다닙니다. `hiddenNodes`로 숨깁니다.
+
+    크기는 두 모델 모두 미터 단위라 `modelScale: 1`입니다. Fox만 Z-up으로 제작돼
+    `modelRotationOffset` 보정이 필요합니다.
+
+18. **캐릭터 배치 시 조준각은 분석값이 아니라 캐릭터 눈높이에서 다시 계산합니다.**
     collision이 `ground`라 캐릭터는 지형 표면에 붙으므로, 관측 높이를 크게 잡은 지점
     (남산 N서울타워 전망대 = 지형 + 135m)은 분석 관측점과 높이가 다릅니다. 실제로
     표의 고도각은 −0.4°(전망대에서 내려다봄)인데 캐릭터 기준으로는 +0.98°(올려다봄)가
     나옵니다. `sightTarget()`으로 다시 계산해 `setFpvPitch(-elevation)`에 넘깁니다
     (fpvPitch는 양수가 아래를 향하므로 부호를 뒤집습니다).
 
-18. **화면 클릭 → 지도 좌표는 `click` 이벤트의 `event.map`(ECEF)입니다.** 엔진은
+19. **화면 클릭 → 지도 좌표는 `click` 이벤트의 `event.map`(ECEF)입니다.** 엔진은
     `clientX/clientY`에서 캔버스 rect를 빼 계산합니다. 이 값은 **타원체 표면** 교점이라
     지형 고도가 아니므로, 캐릭터를 지면에 놓으려면 위경도로 변환한 뒤
     (`vector3ToGeodetic`) `sampleTerrainMostDetailed`로 표고를 따로 구해야 합니다.
 
-19. **관측 지점 좌표는 이름만 보고 넣지 말고 표고·능선 고도를 확인하세요.**
+20. **관측 지점 좌표는 이름만 보고 넣지 말고 표고·능선 고도를 확인하세요.**
     아차산 해맞이광장을 눈대중 좌표로 넣었더니 능선 아래라 동쪽 능선 고도가 18°,
     일출 지연이 +89분으로 나왔습니다(실제로는 동쪽이 트인 해맞이 명소). 용마산도
     표고 167m(정상은 348m), 하늘공원도 70m(정상 약 100m)로 사면을 찍고 있었습니다.
@@ -268,13 +284,13 @@ src/
     하늘공원은 이 오차 때문에 옆 노을공원 언덕에 가려 "가림"으로 잘못 나왔습니다 —
     좌표가 조금만 어긋나도 판정이 뒤집힙니다.
 
-20. **관측점이 주변보다 높으면 능선 고도가 음수가 되고, 그때 일출은 수평선 기준보다
+21. **관측점이 주변보다 높으면 능선 고도가 음수가 되고, 그때 일출은 수평선 기준보다
     이릅니다.** `findSunriseOverTerrain`이 처음에는 수평선 일출 시각부터 앞으로만
     훑어서 이 경우를 놓치고 "능선에 계속 가림"으로 잘못 보고했습니다(안산 봉수대,
     능선 −0.07°). 지금은 `searchBackHours`만큼 이전부터 탐색하며, 지연이 음수로도
     나올 수 있으므로 표기 시 부호를 처리해야 합니다.
 
-21. **구름은 `addDefaultPhotorealScene()`에 포함되지 않습니다.** `CloudsConfig`
+22. **구름은 `addDefaultPhotorealScene()`에 포함되지 않습니다.** `CloudsConfig`
     이펙트를 따로 추가해야 하며(`scene/Clouds.tsx`), 구름 양은 `clouds.coverage`
     (0~1)입니다. 품질은 `qualityPreset`: `low | medium | high | ultra`.
 
@@ -291,7 +307,7 @@ src/
     텍스처(`local_weather.png`, `shape.bin`, `stbn.bin` 등 약 4MB)는 이펙트를 처음
     켤 때 받아옵니다.
 
-22. **밤하늘의 별·달은 노출을 올려야 보입니다.** 엔진 기본 `toneMappingExposure`는 1이라
+23. **밤하늘의 별·달은 노출을 올려야 보입니다.** 엔진 기본 `toneMappingExposure`는 1이라
     밤이 거의 검게 나옵니다. `PhotorealScene`이 **태양 고도에 따라 노출을 자동으로**
     옮깁니다(낮 1 → 천문박명 이하에서 `nightExposure`). 별은 `stars.intensity`를 크게
     올려야 하고(기본값으로는 노출을 올려도 거의 안 보임), 달은 기본으로 켜져 있고 위상도
@@ -301,7 +317,7 @@ src/
     노출(25)을 쓰면 폭발이 전부 하얗게 포화됩니다(실측: 4에서 이미 형태가 뭉개짐).
     그래서 `nightExposure`를 prop으로 두고 불꽃놀이만 1.8을 씁니다.
 
-23. **물 반사는 두 조각이 다 있어야 합니다.** 수면 자체는 **지형 소스의 워터마스크**가
+24. **물 반사는 두 조각이 다 있어야 합니다.** 수면 자체는 **지형 소스의 워터마스크**가
     만들고(quantized-mesh + `requestWaterMask: true`), 비칠 상은 **SSR 이펙트**
     (`{ ssr: {} }`)가 그립니다. 하나만 있으면 물이 밋밋하거나(마스크만) 비칠 것이
     없습니다(SSR만). 지형 재질(`TerrainMaterial`)에는 물 관련 옵션이 없습니다 —

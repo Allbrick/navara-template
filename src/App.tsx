@@ -3,7 +3,7 @@ import { ViewProvider } from "@navaramap/three-react";
 import { useMemo, useState } from "react";
 
 import { Demos } from "./Demos";
-import { createPersonView } from "./scene/personView";
+import { createPersonViews } from "./scene/personView";
 
 export default function App() {
   // canvas를 ref가 아닌 state로 잡는다. ViewProvider의 canvas prop은
@@ -15,10 +15,11 @@ export default function App() {
   // DefaultPlugin은 PhotorealScene이(init 후) 다시 쓰고, PersonViewPlugin은
   // WalkDemo가 teleport/start에 쓰므로 같은 인스턴스를 아래로 넘긴다.
   const defaultPlugin = useMemo(() => new DefaultPlugin(), []);
-  const personView = useMemo(() => createPersonView(), []);
+  // 캐릭터마다 인스턴스가 하나씩 필요하다 (모델이 생성자 전용이라).
+  const personViews = useMemo(() => createPersonViews(), []);
   const plugins = useMemo(
-    () => [defaultPlugin, personView],
-    [defaultPlugin, personView],
+    () => [defaultPlugin, ...Object.values(personViews)],
+    [defaultPlugin, personViews],
   );
 
   return (
@@ -28,7 +29,7 @@ export default function App() {
         // animation: 불꽃 입자와 캐릭터 이동을 매 프레임 갱신해야 하므로
         // 연속 렌더가 필요하다. 끄면 변화가 있을 때만 렌더된다.
         <ViewProvider canvas={canvas} plugins={plugins} shadow animation>
-          <Demos defaultPlugin={defaultPlugin} personView={personView} />
+          <Demos defaultPlugin={defaultPlugin} personViews={personViews} />
         </ViewProvider>
       )}
     </div>

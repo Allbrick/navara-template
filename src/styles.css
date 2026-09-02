@@ -292,3 +292,36 @@ body,
 .scene-controls .field.checkbox span {
   display: inline;
 }
+
+.panel .field + * {
+  margin-top: 12px;
+}
+
+.panel .field > span {
+  display: block;
+  font-size: 13px;
+}
+
+.panel .segmented {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.panel .segmented button {
+  flex: 1;
+  padding: 5px 0;
+  border: 1px solid #ffffff33;
+  border-radius: 6px;
+  background: #ffffff14;
+  color: #eee;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.panel .segmented button[aria-pressed="true"] {
+  background: #eee;
+  color: #0a0a0f;
+  border-color: #eee;
+}

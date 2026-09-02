@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Vector3 } from "three";
 
 import { TERRAIN_SOURCE_ID } from "../../constants";
+import { CHARACTER_LIST, type CharacterId } from "../../scene/characters";
 import { Panel } from "../../ui/Panel";
 
 /** 탐방 중 바로 이동할 수 있는 지점. 분석 데모들의 관측지를 모아 받는다. */
@@ -20,6 +21,8 @@ export type Destination = {
 type Props = {
   personView: PersonViewPlugin;
   destinations: Destination[];
+  characterId: CharacterId;
+  onCharacterChange: (id: CharacterId) => void;
 };
 
 const CONTROLS: [string, string][] = [
@@ -40,7 +43,12 @@ const CONTROLS: [string, string][] = [
  * 사용자가 지점을 정한 시점부터 시점을 가져간다 — 분석에서 맞춰 둔 시점을
  * 탐방을 켰다는 이유만으로 잃지 않게 하기 위해서다.
  */
-export function WalkDemo({ personView, destinations }: Props) {
+export function WalkDemo({
+  personView,
+  destinations,
+  characterId,
+  onCharacterChange,
+}: Props) {
   const { view } = useViewContext();
 
   const [state, setState] = useState<PersonViewState | null>(null);
@@ -124,6 +132,23 @@ export function WalkDemo({ personView, destinations }: Props) {
         {placing && " 배치 중…"}
       </p>
 
+      <div className="field">
+        <span>캐릭터</span>
+        <div className="segmented">
+          {CHARACTER_LIST.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              title={c.description}
+              aria-pressed={characterId === c.id}
+              onClick={() => onCharacterChange(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <label>
         분석 지점으로 이동
         <select
@@ -195,8 +220,8 @@ export function WalkDemo({ personView, destinations }: Props) {
       </table>
 
       <p className="note">
-        지형에 붙어 걷습니다(collision: ground). 캐릭터 모델은 Khronos glTF
-        Sample Assets의 Fox입니다.
+        지형에 붙어 걷습니다(collision: ground). 캐릭터를 바꾸면 있던 자리에서
+        그대로 이어집니다.
       </p>
     </Panel>
   );

@@ -1,7 +1,6 @@
 import type { DefaultPlugin } from "@navaramap/three-default-plugin";
-import type { PersonViewPlugin } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
@@ -11,6 +10,16 @@ import { WalkDemo, type Destination } from "./demos/walk/WalkDemo";
 import { BaseLayers } from "./scene/BaseLayers";
 import type { BasemapId } from "./scene/basemaps";
 import { Clouds, type CloudQuality } from "./scene/Clouds";
+import {
+  CHARACTERS,
+  DEFAULT_CHARACTER,
+  type CharacterId,
+} from "./scene/characters";
+import {
+  hideModelNodes,
+  setModelVisible,
+  type PersonViews,
+} from "./scene/personView";
 import { PhotorealScene } from "./scene/PhotorealScene";
 import { WaterReflection } from "./scene/WaterReflection";
 import { SceneControls } from "./ui/SceneControls";
@@ -25,7 +34,7 @@ type AnalysisId = (typeof ANALYSES)[number]["id"];
 
 type Props = {
   defaultPlugin: DefaultPlugin;
-  personView: PersonViewPlugin;
+  personViews: PersonViews;
 };
 
 /**
@@ -38,7 +47,9 @@ type Props = {
  * 모드는 두 축이다. **분석**(일출/불꽃놀이)은 서로 배타적이고, **탐방**은 그와
  * 무관하게 켜고 끈다 — 분석 패널을 띄워둔 채로 현장을 걸어다닐 수 있다.
  */
-export function Demos({ defaultPlugin, personView }: Props) {
+export function Demos({ defaultPlugin, personViews }: Props) {
+  const [characterId, setCharacterId] = useState<CharacterId>(DEFAULT_CHARACTER);
+  const personView = personViews[characterId];
   const [analysis, setAnalysis] = useState<AnalysisId>("sunrise");
   const [walking, setWalking] = useState(false);
 
@@ -97,8 +108,51 @@ export function Demos({ defaultPlugin, personView }: Props) {
    * (각 분석 패널의 "관람 종료" 버튼은 사용자가 직접 멈추는 별개 경로다.)
    */
   useEffect(() => {
-    if (!walking) personView.stop();
-  }, [analysis, walking, personView]);
+    // 활성 캐릭터만이 아니라 전부 멈춘다. 전환 직후 이전 캐릭터가 카메라를
+    // 붙들고 있는 상태가 남을 수 있기 때문이다.
+    if (!walking) for (const pv of Object.values(personViews)) pv.stop();
+  }, [analysis, walking, personViews]);
+
+  /**
+   * 캐릭터 전환. 모델을 바꿀 수 없으니 인스턴스를 갈아탄다 —
+   * 이전 것의 상태를 읽어 새 것에 옮겨 심고 시작한다.
+   */
+  const previousCharacter = useRef(characterId);
+  useEffect(() => {
+    const from = previousCharacter.current;
+    if (from === characterId) return;
+    previousCharacter.current = characterId;
+    if (!walking) return;
+
+    const previous = personViews[from];
+    const next = personViews[characterId];
+    const state = previous.getState();
+
+    previous.stop();
+    next.teleport({
+      lng: state.lng,
+      lat: state.lat,
+      alt: state.alt,
+      heading: state.heading,
+    });
+    next.setViewMode(state.mode);
+    next.start();
+  }, [characterId, walking, personViews]);
+
+  // 활성 캐릭터만 보이게 한다. stop()은 모델을 치우지 않아서, 이걸 안 하면
+  // 캐릭터를 바꿨을 때 이전 모델이 그 자리에 그대로 서 있는다.
+  useEffect(() => {
+    const cancels = Object.entries(personViews).map(([id, pv]) =>
+      setModelVisible(pv, id === characterId),
+    );
+    return () => cancels.forEach((cancel) => cancel());
+  }, [characterId, personViews, walking]);
+
+  // 모델에 딸려 온 불필요한 노드를 숨긴다 (human.glb의 바닥 평면 등).
+  useEffect(
+    () => hideModelNodes(personView, CHARACTERS[characterId].hiddenNodes),
+    [personView, characterId, walking],
+  );
 
   return (
     <>
@@ -158,7 +212,12 @@ export function Demos({ defaultPlugin, personView }: Props) {
           <FireworksAnalysis personView={personView} />
         )}
         {walking && (
-          <WalkDemo personView={personView} destinations={destinations} />
+          <WalkDemo
+            personView={personView}
+            destinations={destinations}
+            characterId={characterId}
+            onCharacterChange={setCharacterId}
+          />
         )}
       </div>
     </>
