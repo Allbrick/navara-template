@@ -269,6 +269,16 @@ src/
     텍스처(`local_weather.png`, `shape.bin`, `stbn.bin` 등 약 4MB)는 이펙트를 처음
     켤 때 받아옵니다.
 
+22. **밤하늘의 별·달은 노출을 올려야 보입니다.** 엔진 기본 `toneMappingExposure`는 1이라
+    밤이 거의 검게 나옵니다. `PhotorealScene`이 **태양 고도에 따라 노출을 자동으로**
+    옮깁니다(낮 1 → 천문박명 이하에서 `nightExposure`). 별은 `stars.intensity`를 크게
+    올려야 하고(기본값으로는 노출을 올려도 거의 안 보임), 달은 기본으로 켜져 있고 위상도
+    날짜에 맞춰 정확히 그려지지만 시직경이 약 0.5°라 `moonScale`을 키워야 눈에 띕니다.
+
+    **야간 노출은 씬마다 달라야 합니다.** 불꽃놀이처럼 발광체가 많은 씬에 별을 위한 높은
+    노출(25)을 쓰면 폭발이 전부 하얗게 포화됩니다(실측: 4에서 이미 형태가 뭉개짐).
+    그래서 `nightExposure`를 prop으로 두고 불꽃놀이만 1.8을 씁니다.
+
 ## 알려진 이슈
 
 - 콘솔에 `THREE.WARNING: Multiple instances of Three.js being imported.`가 남아 있습니다.

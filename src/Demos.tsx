@@ -98,7 +98,16 @@ export function Demos({ defaultPlugin, personView }: Props) {
 
   return (
     <>
-      <PhotorealScene plugin={defaultPlugin} />
+      {/*
+        같은 밤이라도 씬 성격에 따라 야간 노출을 달리 잡는다. 불꽃놀이는 발광체가
+        많아 별을 위한 높은 노출을 쓰면 폭발이 전부 하얗게 포화된다(실측: 4에서
+        이미 형태가 뭉개짐). 1.8이 폭발의 색·형태를 지키면서 어두운 하늘에 별이
+        보이는 지점이다.
+      */}
+      <PhotorealScene
+        plugin={defaultPlugin}
+        nightExposure={analysis === "fireworks" ? 1.8 : 25}
+      />
       <BaseLayers basemap={basemap} />
       <Clouds coverage={cloudCoverage} quality={cloudQuality} />
 
