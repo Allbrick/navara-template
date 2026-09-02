@@ -1,14 +1,25 @@
 import { vector3ToGeodetic, type MapPointerEvent } from "@navaramap/three";
 import type { PersonViewPlugin, PersonViewState } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Vector3 } from "three";
 
 import { TERRAIN_SOURCE_ID } from "../../constants";
 import { Panel } from "../../ui/Panel";
-import { Vector3 } from "three";
+
+/** 탐방 중 바로 이동할 수 있는 지점. 분석 데모들의 관측지를 모아 받는다. */
+export type Destination = {
+  id: string;
+  /** 목록에서 묶어 보여줄 그룹 이름 */
+  group: string;
+  name: string;
+  lng: number;
+  lat: number;
+};
 
 type Props = {
   personView: PersonViewPlugin;
+  destinations: Destination[];
 };
 
 const CONTROLS: [string, string][] = [
@@ -22,15 +33,14 @@ const CONTROLS: [string, string][] = [
 /**
  * 지점 선택 → 캐릭터 배치 → 조작.
  *
- * 지도를 클릭하면 그 지점의 지형 표고를 샘플링해 캐릭터를 텔레포트시키고
- * 시점을 3인칭으로 넘긴다. 클릭할 때마다 다시 배치되므로 지점을 바꿔가며
- * 돌아다닐 수 있다.
+ * 지도를 클릭하거나 목록에서 분석 지점을 고르면 그 지점의 지형 표고를 샘플링해
+ * 캐릭터를 텔레포트시키고 시점을 3인칭으로 넘긴다.
  *
  * 분석 데모와 독립적으로 켜고 끈다. 켜는 것만으로는 카메라를 건드리지 않고,
- * 사용자가 지도를 클릭한 시점부터 시점을 가져간다 — 분석에서 맞춰 둔 시점을
+ * 사용자가 지점을 정한 시점부터 시점을 가져간다 — 분석에서 맞춰 둔 시점을
  * 탐방을 켰다는 이유만으로 잃지 않게 하기 위해서다.
  */
-export function WalkDemo({ personView }: Props) {
+export function WalkDemo({ personView, destinations }: Props) {
   const { view } = useViewContext();
 
   const [state, setState] = useState<PersonViewState | null>(null);
@@ -39,16 +49,9 @@ export function WalkDemo({ personView }: Props) {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 클릭 지점에 캐릭터를 배치한다.
-  useEffect(() => {
-    const onClick = async (event: MapPointerEvent) => {
-      // event.map은 지구 표면의 ECEF 좌표다. 위경도로 바꾼 뒤 그 지점의
-      // 지형 표고를 따로 샘플링해 고도를 정한다.
-      const geodetic = vector3ToGeodetic(
-        new Vector3(event.map.x, event.map.y, event.map.z),
-      );
-      const position = { lat: geodetic.lat, lng: geodetic.lng };
-
+  /** 지형 표고를 받아 그 위에 캐릭터를 세운다. 클릭과 목록 이동이 공유한다. */
+  const placeAt = useCallback(
+    async (position: { lat: number; lng: number }) => {
       setPlacing(true);
       setError(null);
       try {
@@ -57,7 +60,7 @@ export function WalkDemo({ personView }: Props) {
           [position],
         );
         if (sampled.height === undefined) {
-          setError("이 지점의 지형 표고를 얻지 못했습니다. 다른 곳을 눌러보세요.");
+          setError("이 지점의 지형 표고를 얻지 못했습니다. 다른 곳을 골라보세요.");
           return;
         }
 
@@ -70,11 +73,24 @@ export function WalkDemo({ personView }: Props) {
       } finally {
         setPlacing(false);
       }
+    },
+    [view, personView],
+  );
+
+  // 클릭 지점에 캐릭터를 배치한다.
+  useEffect(() => {
+    const onClick = (event: MapPointerEvent) => {
+      // event.map은 지구 표면의 ECEF 좌표다. 위경도로 바꾼 뒤 그 지점의
+      // 지형 표고를 따로 샘플링해 고도를 정한다.
+      const geodetic = vector3ToGeodetic(
+        new Vector3(event.map.x, event.map.y, event.map.z),
+      );
+      void placeAt({ lat: geodetic.lat, lng: geodetic.lng });
     };
 
     view.on("click", onClick);
     return () => view.off("click", onClick);
-  }, [view, personView]);
+  }, [view, placeAt]);
 
   useEffect(() => personView.onStateChange(setState), [personView]);
 
@@ -88,19 +104,48 @@ export function WalkDemo({ personView }: Props) {
     }
   }, [active, personView]);
 
+  /** 그룹 순서를 유지한 채 목록을 묶는다. */
+  const grouped = useMemo(() => {
+    const groups = new Map<string, Destination[]>();
+    for (const d of destinations) {
+      const list = groups.get(d.group);
+      if (list) list.push(d);
+      else groups.set(d.group, [d]);
+    }
+    return [...groups.entries()];
+  }, [destinations]);
+
   return (
     <Panel title="지점 선택 · 캐릭터 조작">
-      {!placed ? (
-        <p className="note">
-          지도를 클릭하면 그 지점에 캐릭터가 배치되고 3인칭 시점으로 바뀝니다.
-          {placing && " 배치 중…"}
-        </p>
-      ) : (
-        <p className="note">
-          다른 곳을 클릭하면 그 지점으로 옮겨갑니다.
-          {placing && " 배치 중…"}
-        </p>
-      )}
+      <p className="note">
+        {placed
+          ? "다른 곳을 클릭하면 그 지점으로 옮겨갑니다."
+          : "지도를 클릭하면 그 지점에 캐릭터가 배치되고 3인칭 시점으로 바뀝니다."}
+        {placing && " 배치 중…"}
+      </p>
+
+      <label>
+        분석 지점으로 이동
+        <select
+          value=""
+          disabled={placing}
+          onChange={(e) => {
+            const target = destinations.find((d) => d.id === e.target.value);
+            if (target) void placeAt({ lat: target.lat, lng: target.lng });
+          }}
+        >
+          <option value="">지점 선택…</option>
+          {grouped.map(([group, items]) => (
+            <optgroup key={group} label={group}>
+              {items.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
 
       {error && <p className="note bad">{error}</p>}
 

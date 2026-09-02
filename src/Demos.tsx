@@ -1,11 +1,13 @@
 import type { DefaultPlugin } from "@navaramap/three-default-plugin";
 import type { PersonViewPlugin } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FireworksAnalysis } from "./demos/fireworks/FireworksAnalysis";
 import { SunriseAnalysis } from "./demos/sunrise/SunriseAnalysis";
-import { WalkDemo } from "./demos/walk/WalkDemo";
+import { LAUNCH_SITE, VIEWPOINTS } from "./demos/fireworks/constants";
+import { SUNRISE_VIEWPOINTS } from "./demos/sunrise/constants";
+import { WalkDemo, type Destination } from "./demos/walk/WalkDemo";
 import { BaseLayers } from "./scene/BaseLayers";
 import type { BasemapId } from "./scene/basemaps";
 import { Clouds, type CloudQuality } from "./scene/Clouds";
@@ -44,6 +46,37 @@ export function Demos({ defaultPlugin, personView }: Props) {
   const [cloudCoverage, setCloudCoverage] = useState(0.3);
   const [cloudQuality, setCloudQuality] = useState<CloudQuality>("medium");
   const { view } = useViewContext();
+
+  /**
+   * 탐방 중 바로 이동할 수 있는 분석 지점들. 여기서 모아 넘기므로 WalkDemo는
+   * 어느 분석에서 온 지점인지 몰라도 된다.
+   */
+  const destinations = useMemo<Destination[]>(
+    () => [
+      ...SUNRISE_VIEWPOINTS.map((v) => ({
+        id: `sunrise-${v.id}`,
+        group: "일출 관측지",
+        name: v.name,
+        lng: v.lng,
+        lat: v.lat,
+      })),
+      ...VIEWPOINTS.map((v) => ({
+        id: `fireworks-${v.id}`,
+        group: "불꽃놀이 관측지",
+        name: v.name,
+        lng: v.lng,
+        lat: v.lat,
+      })),
+      {
+        id: "fireworks-launch",
+        group: "불꽃놀이 관측지",
+        name: "여의도 발사 지점",
+        lng: LAUNCH_SITE.lng,
+        lat: LAUNCH_SITE.lat,
+      },
+    ],
+    [],
+  );
 
   // 개발 중 콘솔에서 엔진 API를 직접 두드려 보기 위한 핸들.
   useEffect(() => {
@@ -108,7 +141,9 @@ export function Demos({ defaultPlugin, personView }: Props) {
         {analysis === "fireworks" && (
           <FireworksAnalysis personView={personView} />
         )}
-        {walking && <WalkDemo personView={personView} />}
+        {walking && (
+          <WalkDemo personView={personView} destinations={destinations} />
+        )}
       </div>
     </>
   );

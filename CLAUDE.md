@@ -21,6 +21,10 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 켜고 끄는 토글이다 — 분석 패널을 띄워둔 채 현장을 걸어다닐 수 있다. UI에서도 두 그룹을
 구분선으로 나누고, 패널은 `.panel-stack`에 세로로 쌓는다.
 
+탐방 패널에서는 두 분석의 관측지로 바로 이동할 수 있다. 목록은 `Demos`가 양쪽
+constants에서 모아 `destinations`로 넘기므로, `WalkDemo`는 어느 분석에서 온 지점인지
+알 필요가 없다.
+
 배경지도와 하늘(구름)은 데모와 무관한 씬 전체 설정이라 `Demos`가 상태를 들고 공유한다.
 
 남은 과제: 일몰/박명 시각, 능선 프로파일 시각화, 지도 클릭으로 임의 지점 분석
@@ -107,7 +111,7 @@ src/
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
-  demos/walk/      WalkDemo.tsx — 클릭 지점에 캐릭터 배치·조작
+  demos/walk/      WalkDemo.tsx — 클릭 지점 또는 분석 지점 목록으로 캐릭터 배치·조작
   ui/              Panel, SceneControls(배경지도·구름 — 데모 공통)
 ```
 
