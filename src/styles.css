@@ -325,3 +325,13 @@ body,
   color: #0a0a0f;
   border-color: #eee;
 }
+
+.panel .field.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel .field.checkbox span {
+  display: inline;
+}

@@ -21,6 +21,8 @@ function createFor(character: Character): PersonViewPlugin {
     },
     // 지형에 붙어 걷는다. off면 공중을 자유 비행한다.
     collision: { mode: "ground" },
+    // 마우스 드래그로 바로 시점을 돌린다. false면 Alt를 누른 채로만 가능하다.
+    allowCameraControl: true,
     moveSpeed: 10,
     dashSpeedMultiplier: 4,
     cameraDistance: character.cameraDistance,

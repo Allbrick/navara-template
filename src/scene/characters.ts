@@ -15,6 +15,16 @@ import penguinUrl from "../models/pink.glb?url";
  */
 export type CharacterId = "fox" | "human" | "penguin";
 
+/**
+ * 표준 Y-up glTF를 캐릭터 프레임에 맞추는 보정.
+ *
+ * 캐릭터 프레임은 ENU(+Z가 위)다. 보정 없이 두면 모델의 앞(+Z)이 하늘을 향해
+ * **얼굴을 위로 하고 등으로 눕는다.** `Rx(+90°)`가 모델의 +Y를 월드 위로 세우고,
+ * 그러면 앞이 남쪽을 향하므로 `Ry(180°)`로 돌려 heading 0(정북)과 맞춘다.
+ * 셋 다 표준 Y-up glTF라 같은 값을 쓴다.
+ */
+const UPRIGHT_Y_UP = { x: Math.PI / 2, y: Math.PI, z: 0 };
+
 export type Character = {
   id: CharacterId;
   label: string;
@@ -49,8 +59,7 @@ export const CHARACTERS: Record<CharacterId, Character> = {
     modelUrl:
       "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb",
     animation: { idleClip: "Survey", walkClip: "Walk", dashClip: "Run" },
-    // Fox는 Z-up으로 제작돼 Y-up 프레임에 맞추려면 보정이 필요하다.
-    modelRotationOffset: { x: Math.PI / 2, y: Math.PI, z: 0 },
+    modelRotationOffset: UPRIGHT_Y_UP,
     modelScale: 0.06,
     fpvHeightOffset: 0.9,
     cameraDistance: 20,
@@ -67,6 +76,7 @@ export const CHARACTERS: Record<CharacterId, Character> = {
     modelUrl: humanUrl,
     // 클립 이름이 대문자로 시작한다. penguin과 대소문자가 다르니 주의.
     animation: { idleClip: "Idle", walkClip: "Walk", dashClip: "Run" },
+    modelRotationOffset: UPRIGHT_Y_UP,
     modelScale: 1,
     fpvHeightOffset: 1.6,
     cameraDistance: 6,
@@ -79,6 +89,7 @@ export const CHARACTERS: Record<CharacterId, Character> = {
     modelUrl: penguinUrl,
     // 이쪽은 전부 소문자다.
     animation: { idleClip: "idle", walkClip: "walk", dashClip: "run" },
+    modelRotationOffset: UPRIGHT_Y_UP,
     modelScale: 1,
     fpvHeightOffset: 0.9,
     cameraDistance: 5,

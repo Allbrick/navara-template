@@ -30,7 +30,7 @@ const CONTROLS: [string, string][] = [
   ["A / D", "좌회전 / 우회전"],
   ["Shift", "달리기"],
   ["V", "3인칭 ↔ 1인칭"],
-  ["Alt (누른 채)", "자유 카메라"],
+  ["마우스 드래그", "시점 회전"],
 ];
 
 /**
@@ -55,7 +55,14 @@ export function WalkDemo({
   const [placed, setPlaced] = useState(false);
   const [active, setActive] = useState(false);
   const [placing, setPlacing] = useState(false);
+  const [freeCamera, setFreeCamera] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 마우스 드래그로 시점을 돌린다. off면 Alt를 누른 채로만 가능하다.
+  // 캐릭터를 바꾸면 플러그인 인스턴스가 달라지므로 다시 적용해야 한다.
+  useEffect(() => {
+    personView.setAllowCameraControl(freeCamera);
+  }, [personView, freeCamera]);
 
   /** 지형 표고를 받아 그 위에 캐릭터를 세운다. 클릭과 목록 이동이 공유한다. */
   const placeAt = useCallback(
@@ -192,6 +199,15 @@ export function WalkDemo({
           <dd>{state.animationState ?? "—"}</dd>
         </dl>
       )}
+
+      <label className="field checkbox">
+        <input
+          type="checkbox"
+          checked={freeCamera}
+          onChange={(e) => setFreeCamera(e.target.checked)}
+        />
+        <span>마우스로 시점 회전</span>
+      </label>
 
       {placed && (
         <>
