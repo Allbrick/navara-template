@@ -16,8 +16,7 @@ import {
   type CharacterId,
 } from "./scene/characters";
 import {
-  applyModelOffset,
-  hideModelNodes,
+  applyModelTweaks,
   setModelVisible,
   type PersonViews,
 } from "./scene/personView";
@@ -149,17 +148,11 @@ export function Demos({ defaultPlugin, personViews }: Props) {
     return () => cancels.forEach((cancel) => cancel());
   }, [characterId, personViews, walking]);
 
-  // 모델에 딸려 온 불필요한 노드를 숨긴다 (human.glb의 바닥 평면 등).
-  useEffect(
-    () => hideModelNodes(personView, CHARACTERS[characterId].hiddenNodes),
-    [personView, characterId, walking],
-  );
-
-  // 메시가 원점에서 벗어난 모델을 가운데로 맞춘다 (pink.glb 등).
-  useEffect(
-    () => applyModelOffset(personView, CHARACTERS[characterId].modelOffset),
-    [personView, characterId, walking],
-  );
+  // 모델별 손질: 딸려 온 바닥 평면 숨기기, 원점에서 벗어난 메시 되맞추기.
+  useEffect(() => {
+    const { hiddenNodes, recenterNodes } = CHARACTERS[characterId];
+    return applyModelTweaks(personView, { hiddenNodes, recenterNodes });
+  }, [personView, characterId, walking]);
 
   return (
     <>

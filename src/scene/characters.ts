@@ -39,11 +39,14 @@ export type Character = {
   modelScale: number;
   modelRotationOffset?: { x: number; y: number; z: number };
   /**
-   * 메시가 모델 원점에서 벗어나 있을 때 되돌리는 값 (캐릭터 프레임 기준 m).
-   * 카메라는 원점을 겨누므로, 원점과 메시 중심이 어긋나면 캐릭터가 화면
-   * 한쪽으로 밀려 보인다.
+   * 로드 후 지역 translation을 0으로 만들 노드 이름.
+   *
+   * 메시가 모델 원점에서 벗어나 있으면 캐릭터가 화면 한쪽으로 밀려 보인다
+   * (카메라는 원점을 겨눈다). Descriptor의 `position`으로 상쇄하면 플러그인이
+   * 매 프레임 다시 쓰는 변환과 충돌해 **캐릭터가 한 방향으로 계속 흘러간다** —
+   * 그래서 모델 안쪽 노드를 직접 고친다.
    */
-  modelOffset?: { x: number; y: number; z: number };
+  recenterNodes?: string[];
   /** 눈높이 (m). 1인칭 시점과 3인칭 카메라가 겨누는 높이. */
   fpvHeightOffset: number;
   /** 3인칭 카메라 거리 (m). 작은 캐릭터일수록 가깝게. */
@@ -97,9 +100,9 @@ export const CHARACTERS: Record<CharacterId, Character> = {
     animation: { idleClip: "idle", walkClip: "walk", dashClip: "run" },
     modelRotationOffset: UPRIGHT_Y_UP,
     modelScale: 1,
-    // 이 모델은 penguin_rig 루트에 translation [1.3, 0, 0]이 박혀 있어
-    // 메시가 원점에서 옆으로 벗어나 있다. 그만큼 되돌린다.
-    modelOffset: { x: 1.3, y: 0, z: 0 },
+    // penguin_rig 루트에 translation [1.3, 0, 0]이 박혀 있어 메시가 원점에서
+    // 옆으로 벗어나 있다. 그 노드를 원점으로 되돌린다.
+    recenterNodes: ["penguin_rig"],
     fpvHeightOffset: 0.9,
     cameraDistance: 5,
   },

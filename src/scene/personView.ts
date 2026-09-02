@@ -87,81 +87,51 @@ export function setModelVisible(
   };
 }
 
-/**
- * 메시가 모델 원점에서 벗어나 있을 때 되돌린다.
- *
- * 카메라는 캐릭터의 원점을 겨누므로, 원점과 메시 중심이 어긋나 있으면 캐릭터가
- * 화면 한쪽으로 밀려 보인다. `MeshConfig.position`은 프레임 안쪽 오프셋으로
- * 적용되므로 여기에 반대 방향 값을 준다.
- *
- * 모델은 비동기 로드라 잠시 기다렸다 적용한다.
- */
-export function applyModelOffset(
-  personView: PersonViewPlugin,
-  offset: { x: number; y: number; z: number } | undefined,
-  { attempts = 40, intervalMs = 100 } = {},
-): () => void {
-  if (!offset) return () => {};
-
-  let cancelled = false;
-  let left = attempts;
-
-  const tick = () => {
-    if (cancelled) return;
-    const model = personView.model;
-    if (model) {
-      model.update({ position: offset });
-      return;
-    }
-    if (--left > 0) setTimeout(tick, intervalMs);
-  };
-  tick();
-
-  return () => {
-    cancelled = true;
-  };
-}
-
 type Object3DLike = {
   name?: string;
   visible?: boolean;
+  position?: { set: (x: number, y: number, z: number) => void };
   children?: Object3DLike[];
 };
 
-function hideByName(node: Object3DLike, names: Set<string>): number {
-  let hidden = 0;
-  if (node.name && names.has(node.name)) {
-    node.visible = false;
-    hidden++;
-  }
-  for (const child of node.children ?? []) hidden += hideByName(child, names);
-  return hidden;
-}
-
 /**
- * 모델 안의 특정 노드를 숨긴다 (human.glb에 딸려 오는 바닥 평면 등).
+ * 로드된 모델에 캐릭터별 손질을 적용한다.
  *
- * 모델은 `start()` 이후 비동기로 로드되므로 잠시 기다렸다 적용한다.
- * 반환값은 정리 함수 — 아직 대기 중이면 취소한다.
+ * - `hiddenNodes`: 모델에 딸려 온 불필요한 메시를 숨긴다 (human.glb의 바닥 평면).
+ * - `recenterNodes`: 박힌 translation을 0으로 만들어 메시를 원점에 맞춘다
+ *   (pink.glb의 `penguin_rig`).
+ *
+ * **찾을 때까지 재시도해야 한다.** 모델은 비동기로 로드되는데, `model.ref.raw`가
+ * 생긴 시점에도 하위 트리는 아직 비어 있을 수 있다. 처음 구현에서 raw가 있으면
+ * 바로 끝내버려 아무것도 숨겨지지 않았다.
+ *
+ * 성공 후에도 창을 열어두고 다시 적용한다 — 캐릭터를 전환하면 모델이 새로
+ * 로드되기 때문이다. 노드 수십 개 순회라 비용은 무시할 만하다.
  */
-export function hideModelNodes(
+export function applyModelTweaks(
   personView: PersonViewPlugin,
-  names: string[] | undefined,
-  { attempts = 40, intervalMs = 100 } = {},
+  tweaks: { hiddenNodes?: string[]; recenterNodes?: string[] },
+  { attempts = 100, intervalMs = 150 } = {},
 ): () => void {
-  if (!names || names.length === 0) return () => {};
+  const hidden = new Set(tweaks.hiddenNodes ?? []);
+  const recenter = new Set(tweaks.recenterNodes ?? []);
+  if (hidden.size === 0 && recenter.size === 0) return () => {};
 
-  const wanted = new Set(names);
   let cancelled = false;
   let left = attempts;
+
+  const walk = (node: Object3DLike) => {
+    if (node.name) {
+      if (hidden.has(node.name)) node.visible = false;
+      if (recenter.has(node.name)) node.position?.set(0, 0, 0);
+    }
+    for (const child of node.children ?? []) walk(child);
+  };
 
   const tick = () => {
     if (cancelled) return;
     const raw = personView.model?.ref?.raw as Object3DLike | undefined;
-    if (raw) {
-      hideByName(raw, wanted);
-      return;
-    }
+    if (raw) walk(raw);
     if (--left > 0) setTimeout(tick, intervalMs);
   };
   tick();
