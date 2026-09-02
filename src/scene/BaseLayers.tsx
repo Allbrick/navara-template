@@ -1,7 +1,4 @@
-import {
-  TERRARIUM_ELEVATION_DECODER,
-  type LayerDescription,
-} from "@navaramap/three";
+import type { LayerDescription } from "@navaramap/three";
 import { Layer, useViewContext } from "@navaramap/three-react";
 import { useEffect, useMemo } from "react";
 
@@ -9,8 +6,9 @@ import { INITIAL_CAMERA, TERRAIN_SOURCE_ID } from "../constants";
 import { BASEMAP_LIST, BASEMAPS, type BasemapId } from "./basemaps";
 
 const TERRAIN_ATTRIBUTION = {
-  attribution: "Terrain: AWS Terrain Tiles / Mapzen",
-  attributionUrl: "https://registry.opendata.aws/terrain-tiles/",
+  attributionHtml:
+    'Terrain: <a href="https://terrain.reearth.land/">Re:Earth Terrain</a> ' +
+    '(<a href="https://mapterhorn.com/">Mapterhorn</a>, EGM2008 / NGA)',
 };
 
 type Props = {
@@ -24,8 +22,10 @@ type Props = {
  * 소스는 등록만으로 타일을 받지 않고 레이어가 참조할 때 받으므로, 전환할 때마다
  * addSource를 다시 호출해 쓰지 않는 소스를 쌓을 이유가 없다.
  *
- * 지형은 Terrarium 인코딩의 AWS Terrain Tiles를 사용한다. 일본 GSI DEM
- * (`JAPAN_GSI_ELEVATION_DECODER`)은 한국을 덮지 않으므로 쓸 수 없다.
+ * 지형은 Re:Earth Terrain(quantized-mesh)을 쓴다. **워터마스크를 제공하는 것이
+ * 핵심** — 수면을 반사 재질로 처리하려면 이 확장이 필요하고, raster-dem 계열
+ * (Terrarium/AWS)에는 없다. 렌더와 분석이 같은 지형을 봐야 하므로 소스는 하나만
+ * 두고 `sampleTerrainMostDetailed`도 이것을 샘플링한다.
  * castShadow/receiveShadow는 일출 분석의 지형 그림자 판정에 필요하다.
  */
 export function BaseLayers({ basemap }: Props) {
@@ -63,11 +63,14 @@ export function BaseLayers({ basemap }: Props) {
       view.addSource({
         // 고정 id를 부여해 일출 차폐 분석이 문자열 SourceRef로 참조할 수 있게 한다.
         id: TERRAIN_SOURCE_ID,
-        type: "raster-dem",
-        url: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-        elevationDecoder: TERRARIUM_ELEVATION_DECODER(),
-        minZoom: 2,
+        type: "quantized-mesh",
+        url: "https://terrain.reearth.land/cesium-mesh/ellipsoid/{z}/{x}/{y}.terrain",
+        minZoom: 0,
+        // layer.json이 알리는 실제 최대 줌.
         maxZoom: 14,
+        requestVertexNormals: true,
+        // 이것이 있어야 수면이 반사 재질로 처리된다.
+        requestWaterMask: true,
       }),
     [view],
   );

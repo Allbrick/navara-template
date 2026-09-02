@@ -10,6 +10,8 @@ type Props = {
   onCoverageChange: (value: number) => void;
   quality: CloudQuality;
   onQualityChange: (value: CloudQuality) => void;
+  reflections: boolean;
+  onReflectionsChange: (value: boolean) => void;
 };
 
 /** 구름 양을 읽기 쉬운 말로 표기한다. */
@@ -29,6 +31,8 @@ export function SceneControls({
   onCoverageChange,
   quality,
   onQualityChange,
+  reflections,
+  onReflectionsChange,
 }: Props) {
   return (
     <section className="scene-controls">
@@ -62,6 +66,15 @@ export function SceneControls({
           value={coverage}
           onChange={(e) => onCoverageChange(Number(e.target.value))}
         />
+      </label>
+
+      <label className="field checkbox">
+        <input
+          type="checkbox"
+          checked={reflections}
+          onChange={(e) => onReflectionsChange(e.target.checked)}
+        />
+        <span>물 반사 (SSR)</span>
       </label>
 
       <label className="field">

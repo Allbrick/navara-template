@@ -282,3 +282,13 @@ body,
   background: #0a0a0f;
   color: #eee;
 }
+
+.scene-controls .field.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scene-controls .field.checkbox span {
+  display: inline;
+}

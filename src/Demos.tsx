@@ -12,6 +12,7 @@ import { BaseLayers } from "./scene/BaseLayers";
 import type { BasemapId } from "./scene/basemaps";
 import { Clouds, type CloudQuality } from "./scene/Clouds";
 import { PhotorealScene } from "./scene/PhotorealScene";
+import { WaterReflection } from "./scene/WaterReflection";
 import { SceneControls } from "./ui/SceneControls";
 
 /** 서로 배타적인 분석 데모. 한 번에 하나만 활성화된다. */
@@ -45,6 +46,7 @@ export function Demos({ defaultPlugin, personView }: Props) {
   const [basemap, setBasemap] = useState<BasemapId>("satellite");
   const [cloudCoverage, setCloudCoverage] = useState(0.3);
   const [cloudQuality, setCloudQuality] = useState<CloudQuality>("medium");
+  const [reflections, setReflections] = useState(true);
   const { view } = useViewContext();
 
   /**
@@ -110,6 +112,7 @@ export function Demos({ defaultPlugin, personView }: Props) {
       />
       <BaseLayers basemap={basemap} />
       <Clouds coverage={cloudCoverage} quality={cloudQuality} />
+      <WaterReflection enabled={reflections} />
 
       <nav className="modes">
         <div className="tabs" role="group" aria-label="분석">
@@ -143,6 +146,8 @@ export function Demos({ defaultPlugin, personView }: Props) {
         onCoverageChange={setCloudCoverage}
         quality={cloudQuality}
         onQualityChange={setCloudQuality}
+        reflections={reflections}
+        onReflectionsChange={setReflections}
       />
 
       <div className="panel-stack">
