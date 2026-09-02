@@ -15,7 +15,7 @@ import {
   sunAzimuthDeg,
   type HorizonProfile,
   type TerrainSampler,
-} from "./occlusion";
+} from "../../analysis/occlusion";
 import {
   findSunriseOverTerrain,
   findSunriseSolarTime,

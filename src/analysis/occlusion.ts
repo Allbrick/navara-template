@@ -157,6 +157,108 @@ export async function sampleHorizonProfile(
   return profile;
 }
 
+/** 관측자에서 본 목표 지점의 방향. */
+export type Sighting = {
+  /** 방위각 (도, 북=0 시계방향) */
+  azimuthDeg: number;
+  /** 접평면 기준 수평 거리 (m) */
+  groundDistanceM: number;
+  /** 겉보기 고도각 (도) */
+  elevationDeg: number;
+};
+
+/** 관측자에서 목표 지점을 봤을 때의 방위·거리·고도각. */
+export function sightTarget(
+  observer: LatLngHeight,
+  target: LatLngHeight,
+): Sighting {
+  const { up, east, north } = localFrame(observer);
+  const origin = geodeticToVector3(observer);
+  const toTarget = geodeticToVector3(target).clone().sub(origin);
+
+  // 수평 성분 = 전체 벡터에서 up 방향 성분을 뺀 것.
+  const upComponent = toTarget.dot(up);
+  const horizontal = toTarget.clone().sub(up.clone().multiplyScalar(upComponent));
+
+  const direction = toTarget.clone().normalize();
+  return {
+    azimuthDeg:
+      ((Math.atan2(horizontal.dot(east), horizontal.dot(north)) * 180) /
+        Math.PI +
+        360) %
+      360,
+    groundDistanceM: horizontal.length(),
+    elevationDeg:
+      (Math.asin(Math.max(-1, Math.min(1, direction.dot(up)))) * 180) /
+      Math.PI,
+  };
+}
+
+export type LineOfSight = Sighting & {
+  /** 지형이 시선을 가리지 않으면 true. */
+  clear: boolean;
+  /** 시선을 가린 지점 중 가장 높이 솟은 것. */
+  blockedBy?: { distanceM: number; elevationDeg: number };
+};
+
+/**
+ * 관측자 → 목표 지점 사이의 가시선을 판정한다.
+ *
+ * 목표까지의 수평 거리 안에서 지형을 훑어, 목표의 겉보기 고도각보다 높이
+ * 올라오는 지형이 있으면 가려진 것으로 본다. 고도각 비교이므로 지구 곡률은
+ * ECEF 기하에 이미 포함된다.
+ */
+export async function checkLineOfSight(
+  observer: LatLngHeight,
+  target: LatLngHeight,
+  sample: TerrainSampler,
+): Promise<LineOfSight> {
+  const sighting = sightTarget(observer, target);
+  const { up, east, north } = localFrame(observer);
+  const origin = geodeticToVector3(observer);
+
+  const rad = (sighting.azimuthDeg * Math.PI) / 180;
+  const direction = north
+    .clone()
+    .multiplyScalar(Math.cos(rad))
+    .add(east.clone().multiplyScalar(Math.sin(rad)))
+    .normalize();
+
+  // 목표 지점 자체는 제외하고 그 앞까지만 훑는다.
+  const distances = sampleDistances(sighting.groundDistanceM).filter(
+    (d) => d < sighting.groundDistanceM - 50,
+  );
+  if (distances.length === 0) return { ...sighting, clear: true };
+
+  const positions: LatLng[] = distances.map((distance) => {
+    const point = origin.clone().add(direction.clone().multiplyScalar(distance));
+    const geodetic = vector3ToGeodetic(point);
+    return { lat: geodetic.lat, lng: geodetic.lng };
+  });
+
+  const heights = await sample(positions);
+
+  let blockedBy: LineOfSight["blockedBy"];
+  distances.forEach((distance, i) => {
+    const height = heights[i];
+    if (height === undefined) return;
+
+    const point = geodeticToVector3({ ...positions[i], height });
+    const toPoint = point.clone().sub(origin).normalize();
+    const elevationDeg =
+      (Math.asin(Math.max(-1, Math.min(1, toPoint.dot(up)))) * 180) / Math.PI;
+
+    if (
+      elevationDeg > sighting.elevationDeg &&
+      (!blockedBy || elevationDeg > blockedBy.elevationDeg)
+    ) {
+      blockedBy = { distanceM: distance, elevationDeg };
+    }
+  });
+
+  return { ...sighting, clear: blockedBy === undefined, blockedBy };
+}
+
 /**
  * 프로파일에 없는 방위각의 지평선 고도를 선형 보간한다.
  * 구간 밖이면 가장 가까운 끝값을 쓴다.

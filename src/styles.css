@@ -123,3 +123,35 @@ body,
   opacity: 0.6;
   cursor: progress;
 }
+
+.panel .results {
+  width: 100%;
+  margin: 12px 0 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.panel .results th {
+  padding: 4px 6px 4px 0;
+  color: #ffffff99;
+  font-weight: 500;
+  text-align: left;
+}
+
+.panel .results td {
+  padding: 4px 6px 4px 0;
+  border-top: 1px solid #ffffff14;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel .results tbody tr {
+  cursor: pointer;
+}
+
+.panel .results tbody tr:hover td {
+  background: #ffffff10;
+}
+
+.panel .results tbody tr[aria-selected="true"] td {
+  background: #ffffff1f;
+}

@@ -10,10 +10,13 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 | 데모 | 내용 | 활용할 Navara 특성 | 상태 |
 |------|------|--------------------|------|
 | 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 샘플링 | 동작 (태양시 슬라이더, 일출 시각, 지형 차폐 판정) |
-| 불꽃놀이 분석 | 야간 씬에서 불꽃 발광 및 관측 시뮬레이션 | 커스텀 라이트/이펙트, 포스트프로세싱, 셰이더 | 미구현 (야간 전환만) |
+| 불꽃놀이 분석 | 야간 씬에서 불꽃 발광 및 관측지 가시성 판정 | InstancedMesh, SelectiveBloom, 지형 샘플링 | 동작 (입자 시뮬레이션 + 관측 후보지 가시성) |
 
-일출 분석의 남은 과제: 관측 지점 선택 UI(현재 서울시청 고정), 일몰/박명 시각,
-능선 프로파일의 시각화.
+두 데모는 `analysis/occlusion.ts`의 지형 차폐 계산을 공유한다 — "특정 방위의 지형이
+목표보다 높이 솟았는가"라는 동일한 문제이기 때문이다.
+
+남은 과제: 관측 지점 선택 UI(현재 좌표 고정), 일몰/박명 시각, 능선 프로파일 시각화,
+불꽃 폭발의 주변 조명(현재 미표현 — 아래 11번 참고).
 
 **중요: 이 리포지토리는 Navara를 *사용하는* 쪽입니다.** Navara 리포지토리의 README에 나오는
 `cargo make dev`, `cargo make prepare`, `wasm-bindgen-cli` 설치 등은 **엔진 자체를 빌드**하는 명령이므로
@@ -74,8 +77,9 @@ Navara는 기능을 4계층으로 제공하며, 필요한 만큼만 아래로 �
 | 타입체크 | `pnpm typecheck` |
 | 빌드 미리보기 | `pnpm preview` |
 
-린터·테스트 러너는 아직 도입하지 않았습니다. 테스트를 추가한다면 순수 함수인
-`src/demos/sunrise/sun.ts`가 첫 대상으로 적합합니다 (엔진 의존 없이 구조적 타입만 사용).
+린터·테스트 러너는 아직 도입하지 않았습니다. 테스트를 추가한다면 엔진에 의존하지 않는
+`src/demos/sunrise/sun.ts`(구조적 타입만 사용), `src/demos/fireworks/particles.ts`,
+`src/analysis/occlusion.ts`의 순수 함수들이 첫 대상으로 적합합니다.
 
 ## Stack
 
@@ -85,12 +89,14 @@ Vite + React 19 + TypeScript. 스택 선택은 Navara 본체와 맞춘 것입니
 
 ```
 src/
-  App.tsx          ViewProvider 설정 (canvas, plugins, shadow)
+  App.tsx          ViewProvider 설정 (canvas, plugins, shadow, animation)
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
   scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들)
-  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + occlusion.ts(지형 차폐)
-  demos/fireworks/ FireworksAnalysis.tsx — 미구현 스텁
+  analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
+  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색)
+  demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
+                   particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
   ui/              Panel
 ```
 
@@ -137,6 +143,32 @@ src/
     포함됩니다(서울시청 450m 동쪽이 65m로 관측점보다 24m 높게 나옴). 근거리 차폐가
     지형이 아니라 건물일 수 있다는 점을 결과 해석 시 감안하세요.
 
+11. **인스턴스별 발광색은 불가능합니다.** `SphereChildConfig.color`는 diffuse에만
+    곱해지는데, 야간 씬에는 비출 광원이 없어 아무 효과가 없습니다. 실제로 보이는 것은
+    `emissiveColor`인데 이것은 메시 단위 공유입니다. 그래서 `FireworksScene`은 **색마다
+    별도의 InstancedSphereMesh**를 만듭니다. 같은 이유로 입자의 소멸은 발광 감쇠가 아니라
+    반지름 축소로 표현합니다.
+
+12. **기본 Descriptor에 PointLight가 없습니다** (`DefaultLightDescription`은 SunLight /
+    SkyLightProbe / AmbientLight / LightProbe뿐). 불꽃이 주변 지형을 비추는 표현이
+    필요하면 Shader 티어에서 커스텀 라이트 Descriptor를 작성해야 합니다.
+
+13. **`preRender`는 렌더 직전에만 emit됩니다.** 연속 애니메이션에는 `ViewProvider`에
+    `animation`이 필요합니다(없으면 변화가 있을 때만 렌더). 그리고 **숨겨진 탭에서는
+    requestAnimationFrame이 0회/초**라 프레임 자체가 돌지 않습니다 — 브라우저 자동화로
+    테스트할 때 애니메이션이 멈춰 보이면 코드가 아니라 이것부터 의심하세요
+    (`document.visibilityState`로 확인). 그럴 때는 시뮬레이션을 수동으로 step시킨 뒤
+    스크린샷으로 한 프레임을 유도해 검증할 수 있습니다.
+
+14. **Navara의 `Color`는 three의 Color가 아닙니다.** `@navaramap/three`가 자체 Color를
+    export하며(sRGB/선형 변환이 명시적) 인자 있는 생성자가 없습니다.
+    `new Color().setStyle("#ff5964")` 형태로 만드세요. three의 Color를 넘기면 타입 에러가
+    납니다.
+
+15. **개별 Descriptor 타입이 필요하면 `@navaramap/three-default-descs`를 직접
+    의존성에 추가해야 합니다.** `@navaramap/three-default-plugin`이 전이 의존으로 갖고
+    있지만 pnpm에서는 직접 import할 수 없습니다.
+
 ## 알려진 이슈
 
 - 콘솔에 `THREE.WARNING: Multiple instances of Three.js being imported.`가 남아 있습니다.
@@ -156,7 +188,6 @@ src/
 
 ## Repository state
 
-- `main` 브랜치에 아직 커밋이 없습니다. 첫 커밋에 스캐폴딩과 설정을 함께 넣으세요.
 - `.gitignore`는 Node/TypeScript 기준으로 작성되어 있습니다.
 - `.bkit/`은 bkit 플러그인의 **로컬 도구 상태**이며 전체가 gitignore 대상입니다.
   머신 종속 절대경로를 담고 세션마다 재작성되므로 커밋하지 마세요.
