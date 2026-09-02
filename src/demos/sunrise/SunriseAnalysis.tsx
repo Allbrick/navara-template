@@ -1,13 +1,7 @@
+import type { PersonViewPlugin } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  DISPLAY_TIME_ZONE,
-  EYE_HEIGHT_M,
-  SEOUL,
-  TERRAIN_SOURCE_ID,
-} from "../../constants";
-import { Panel } from "../../ui/Panel";
 import {
   interpolateHorizon,
   sampleHorizonProfile,
@@ -16,6 +10,13 @@ import {
   type HorizonProfile,
   type TerrainSampler,
 } from "../../analysis/occlusion";
+import {
+  DISPLAY_TIME_ZONE,
+  EYE_HEIGHT_M,
+  TERRAIN_SOURCE_ID,
+} from "../../constants";
+import { Panel } from "../../ui/Panel";
+import { SUNRISE_VIEWPOINTS } from "./constants";
 import {
   findSunriseOverTerrain,
   findSunriseSolarTime,
@@ -38,44 +39,77 @@ type Analysis = {
   terrainSunrise: number | null;
 };
 
+type Props = {
+  personView: PersonViewPlugin;
+};
+
 /**
  * 일출 분석 데모.
  *
  * 태양 위치는 Navara 내장 astronomy-engine을 `view.atmosphere`가 감싼 것을
  * 그대로 쓰고, 지형 차폐는 `view.sampleTerrainMostDetailed`로 능선을 샘플링해
- * 판정한다.
+ * 판정한다. 관측 지점을 바꾸면 능선 프로파일이 달라지므로 분석을 초기화한다.
  */
-export function SunriseAnalysis() {
+export function SunriseAnalysis({ personView }: Props) {
   const { view } = useViewContext();
 
+  const [viewpointId, setViewpointId] = useState(SUNRISE_VIEWPOINTS[0].id);
   const [solarTime, setSolarTime] = useState(6);
   const [elevation, setElevation] = useState(0);
   const [azimuth, setAzimuth] = useState(0);
   const [clockTime, setClockTime] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const viewpoint = useMemo(
+    () =>
+      SUNRISE_VIEWPOINTS.find((v) => v.id === viewpointId) ??
+      SUNRISE_VIEWPOINTS[0],
+    [viewpointId],
+  );
+
+  // 지점이 바뀌면 이전 지점의 능선 프로파일은 무의미하다.
+  useEffect(() => {
+    setAnalysis(null);
+    setError(null);
+    setWatching(false);
+    personView.stop();
+
+    // 해가 뜨는 동쪽을 바라보도록 지점 서쪽 상공에 카메라를 둔다.
+    view.setCamera({
+      lng: viewpoint.lng - 0.025,
+      lat: viewpoint.lat,
+      height: 2000,
+      heading: 90,
+      pitch: -15,
+      roll: 0,
+    });
+  }, [view, personView, viewpoint]);
 
   // 슬라이더 값 → 태양시. atmosphere.date가 바뀌면 하늘·태양광·그림자가 함께 갱신된다.
   useEffect(() => {
     const { atmosphere } = view;
-    atmosphere.setSolarTime({ lng: SEOUL.lng }, solarTime);
+    const location = { lat: viewpoint.lat, lng: viewpoint.lng };
 
-    setElevation(atmosphere.getSunElevation(SEOUL));
+    atmosphere.setSolarTime({ lng: location.lng }, solarTime);
+    setElevation(atmosphere.getSunElevation(location));
     setClockTime(formatClockTime(atmosphere.date, DISPLAY_TIME_ZONE));
     setAzimuth(
       sunAzimuthDeg(atmosphere.date, {
-        ...SEOUL,
+        ...location,
         height: analysis?.groundHeightM ?? 0,
       }),
     );
-  }, [view, solarTime, analysis]);
+  }, [view, solarTime, viewpoint, analysis]);
 
   const analyze = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
       const { atmosphere } = view;
+      const location = { lat: viewpoint.lat, lng: viewpoint.lng };
 
       const sample: TerrainSampler = async (positions) => {
         const results = await view.sampleTerrainMostDetailed(
@@ -87,22 +121,22 @@ export function SunriseAnalysis() {
       };
 
       // 1. 관측자 발밑 표고.
-      const [ground] = await sample([SEOUL]);
+      const [ground] = await sample([location]);
       if (ground === undefined) {
         setError("관측 지점의 지형 표고를 얻지 못했습니다.");
         return;
       }
-      const observer = { ...SEOUL, height: ground + EYE_HEIGHT_M };
+      const observer = { ...location, height: ground + EYE_HEIGHT_M };
 
       // 2. 수평선 기준 일출 시각과 그때의 태양 방위각.
-      const flatSunrise = findSunriseSolarTime(atmosphere, SEOUL);
+      const flatSunrise = findSunriseSolarTime(atmosphere, location);
       if (flatSunrise === null) {
         setError("이 날짜에는 일출이 없습니다.");
         return;
       }
 
       const originalDate = atmosphere.date;
-      atmosphere.setSolarTime({ lng: SEOUL.lng }, flatSunrise);
+      atmosphere.setSolarTime({ lng: location.lng }, flatSunrise);
       const sunriseAzimuth = sunAzimuthDeg(atmosphere.date, observer);
       atmosphere.date = originalDate;
 
@@ -124,7 +158,7 @@ export function SunriseAnalysis() {
       // 4. 능선을 넘는 시각을 탐색.
       const terrainSunrise = findSunriseOverTerrain(
         atmosphere,
-        SEOUL,
+        location,
         () => sunAzimuthDeg(atmosphere.date, observer),
         (az) => interpolateHorizon(profile, az),
         flatSunrise,
@@ -142,7 +176,33 @@ export function SunriseAnalysis() {
     } finally {
       setBusy(false);
     }
-  }, [view]);
+  }, [view, viewpoint]);
+
+  /** 관측 지점에 캐릭터를 세우고 해가 뜨는 방향을 바라보게 한다. */
+  const watchHere = useCallback(() => {
+    if (!analysis) return;
+
+    personView.teleport({
+      lng: viewpoint.lng,
+      lat: viewpoint.lat,
+      alt: analysis.groundHeightM,
+      heading: azimuth,
+    });
+    personView.setViewMode("fpv");
+    // fpvPitch는 양수가 아래를 향한다. 능선 위를 보도록 부호를 뒤집는다.
+    const horizon = interpolateHorizon(analysis.profile, azimuth) ?? 0;
+    personView.setFpvPitch(-Math.max(horizon, elevation));
+    personView.start();
+    setWatching(true);
+  }, [analysis, azimuth, elevation, personView, viewpoint]);
+
+  const release = useCallback(() => {
+    personView.stop();
+    setWatching(false);
+  }, [personView]);
+
+  // 다른 데모로 넘어갈 때 카메라를 view에 돌려준다.
+  useEffect(() => () => personView.stop(), [personView]);
 
   const horizon = analysis ? interpolateHorizon(analysis.profile, azimuth) : null;
   const ridge = analysis?.profile.get(
@@ -154,6 +214,20 @@ export function SunriseAnalysis() {
 
   return (
     <Panel title="일출 분석 — 서울">
+      <label>
+        관측 지점
+        <select
+          value={viewpointId}
+          onChange={(e) => setViewpointId(e.target.value)}
+        >
+          {SUNRISE_VIEWPOINTS.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label>
         태양시 {formatSolarTime(solarTime)}
         <input
@@ -195,20 +269,30 @@ export function SunriseAnalysis() {
       {error && <p className="note bad">{error}</p>}
 
       {analysis && (
-        <dl>
-          <dt>수평선 일출</dt>
-          <dd>{formatSolarTime(analysis.flatSunrise)}</dd>
-          <dt>지형 반영</dt>
-          <dd>
-            {analysis.terrainSunrise === null
-              ? "능선에 계속 가림"
-              : `${formatSolarTime(analysis.terrainSunrise)} (+${Math.round(
-                  (analysis.terrainSunrise - analysis.flatSunrise) * 60,
-                )}분)`}
-          </dd>
-          <dt>관측점 표고</dt>
-          <dd>{analysis.groundHeightM.toFixed(0)}m</dd>
-        </dl>
+        <>
+          <dl>
+            <dt>수평선 일출</dt>
+            <dd>{formatSolarTime(analysis.flatSunrise)}</dd>
+            <dt>지형 반영</dt>
+            <dd>
+              {analysis.terrainSunrise === null
+                ? "능선에 계속 가림"
+                : (() => {
+                    const deltaMin = Math.round(
+                      (analysis.terrainSunrise - analysis.flatSunrise) * 60,
+                    );
+                    const sign = deltaMin > 0 ? "+" : "";
+                    return `${formatSolarTime(analysis.terrainSunrise)} (${sign}${deltaMin}분)`;
+                  })()}
+            </dd>
+            <dt>관측점 표고</dt>
+            <dd>{analysis.groundHeightM.toFixed(0)}m</dd>
+          </dl>
+
+          <button type="button" onClick={watching ? release : watchHere}>
+            {watching ? "관람 종료 (지도 탐색)" : "이 지점에서 일출 보기"}
+          </button>
+        </>
       )}
 
       <p className="note">

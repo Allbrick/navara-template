@@ -60,7 +60,7 @@ export function Demos({ defaultPlugin, personView }: Props) {
         ))}
       </nav>
 
-      {demo === "sunrise" && <SunriseAnalysis />}
+      {demo === "sunrise" && <SunriseAnalysis personView={personView} />}
       {demo === "fireworks" && <FireworksAnalysis personView={personView} />}
       {demo === "walk" && <WalkDemo personView={personView} />}
     </>

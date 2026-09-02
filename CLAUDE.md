@@ -9,7 +9,7 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 
 | 데모 | 내용 | 활용할 Navara 특성 | 상태 |
 |------|------|--------------------|------|
-| 일출 분석 | 특정 지점/시각의 일출 가시성·방향·시간 분석 | 태양 위치 계산, 대기 산란, 지형 샘플링 | 동작 (태양시 슬라이더, 일출 시각, 지형 차폐 판정) |
+| 일출 분석 | 관측 지점별 일출 가시성·방향·시각 분석 | 태양 위치 계산, 대기 산란, 지형 샘플링, PersonViewPlugin | 동작 (지점 선택, 태양시 슬라이더, 지형 차폐 판정, 현장 관람) |
 | 불꽃놀이 분석 | 야간 씬에서 불꽃 발광, 관측지 가시성 판정, 해당 지점에서 관람 | InstancedMesh, SelectiveBloom, 지형 샘플링, PersonViewPlugin | 동작 (입자 시뮬레이션 + 가시성 + 관측지 캐릭터 배치) |
 | 탐방 | 지도에서 지점을 골라 캐릭터를 배치하고 걸어다님 | PersonViewPlugin, 지형 collision, 피킹 | 동작 (클릭 배치 + 3인칭/1인칭 조작) |
 
@@ -17,8 +17,8 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 목표보다 높이 솟았는가"라는 동일한 문제이기 때문이다. 불꽃놀이와 탐방은
 `PersonViewPlugin`도 공유한다(App에서 하나만 만들어 내려보낸다).
 
-남은 과제: 관측 지점 선택 UI(현재 좌표 고정), 일몰/박명 시각, 능선 프로파일 시각화,
-불꽃 폭발의 주변 조명(현재 미표현 — 아래 11번 참고).
+남은 과제: 일몰/박명 시각, 능선 프로파일 시각화, 지도 클릭으로 임의 지점 분석
+(현재 일출은 목록 선택, 탐방은 클릭), 불꽃 폭발의 주변 조명(아래 11번 참고).
 
 **중요: 이 리포지토리는 Navara를 *사용하는* 쪽입니다.** Navara 리포지토리의 README에 나오는
 `cargo make dev`, `cargo make prepare`, `wasm-bindgen-cli` 설치 등은 **엔진 자체를 빌드**하는 명령이므로
@@ -97,7 +97,7 @@ src/
   scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들),
                    personView.ts(캐릭터 플러그인 생성)
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
-  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색)
+  demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
   demos/walk/      WalkDemo.tsx — 클릭 지점에 캐릭터 배치·조작
@@ -199,6 +199,18 @@ src/
     `clientX/clientY`에서 캔버스 rect를 빼 계산합니다. 이 값은 **타원체 표면** 교점이라
     지형 고도가 아니므로, 캐릭터를 지면에 놓으려면 위경도로 변환한 뒤
     (`vector3ToGeodetic`) `sampleTerrainMostDetailed`로 표고를 따로 구해야 합니다.
+
+19. **관측 지점 좌표는 이름만 보고 넣지 말고 표고·능선 고도를 확인하세요.**
+    아차산 해맞이광장을 눈대중 좌표로 넣었더니 능선 아래라 동쪽 능선 고도가 18°,
+    일출 지연이 +89분으로 나왔습니다(실제로는 동쪽이 트인 해맞이 명소). 용마산도
+    표고 167m(정상은 348m)로 산 중턱을 찍고 있었습니다. `sampleTerrainMostDetailed`로
+    주변을 격자 샘플링해 정상을 찾는 편이 확실합니다.
+
+20. **관측점이 주변보다 높으면 능선 고도가 음수가 되고, 그때 일출은 수평선 기준보다
+    이릅니다.** `findSunriseOverTerrain`이 처음에는 수평선 일출 시각부터 앞으로만
+    훑어서 이 경우를 놓치고 "능선에 계속 가림"으로 잘못 보고했습니다(안산 봉수대,
+    능선 −0.07°). 지금은 `searchBackHours`만큼 이전부터 탐색하며, 지연이 음수로도
+    나올 수 있으므로 표기 시 부호를 처리해야 합니다.
 
 ## 알려진 이슈
 

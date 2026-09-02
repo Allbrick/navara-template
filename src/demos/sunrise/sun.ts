@@ -67,8 +67,12 @@ export function findSunriseSolarTime(
  * 해가 뜨면서 방위각이 이동하므로, 매 시각의 태양 방위각에 해당하는 지평선
  * 고도를 `horizonAt`으로 조회해 비교한다.
  *
- * `searchWindowHours` 안에서 교차점을 찾지 못하면 `null`(그 시간대에는 능선에
- * 계속 가려짐).
+ * 탐색은 `startSolarTime`보다 `searchBackHours` 이른 시각에서 시작한다. 관측점이
+ * 주변보다 높아 지형이 아래로 떨어지면 능선 고도가 **음수**가 되고, 그때 실제
+ * 일출은 수평선 기준보다 **이르다**. 앞으로만 훑으면 이 경우를 놓쳐 "계속 가림"
+ * 으로 잘못 보고하게 된다.
+ *
+ * 탐색 구간 안에서 교차점을 찾지 못하면 `null`(그 시간대에는 능선에 계속 가려짐).
  */
 export function findSunriseOverTerrain(
   sampler: SunSampler,
@@ -77,6 +81,7 @@ export function findSunriseOverTerrain(
   horizonAt: (azimuthDeg: number) => number | null,
   startSolarTime: number,
   searchWindowHours = 3,
+  searchBackHours = 1.5,
 ): number | null {
   const originalDate = sampler.date;
 
@@ -90,11 +95,12 @@ export function findSunriseOverTerrain(
 
   try {
     const step = 1 / 60; // 1분
-    let previousHours = startSolarTime;
+    const from = startSolarTime - searchBackHours;
+    let previousHours = from;
     let previousMargin = marginAt(previousHours);
 
     for (
-      let h = startSolarTime + step;
+      let h = from + step;
       h <= startSolarTime + searchWindowHours;
       h += step
     ) {

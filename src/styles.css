@@ -155,3 +155,24 @@ body,
 .panel .results tbody tr[aria-selected="true"] td {
   background: #ffffff1f;
 }
+
+.panel select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 6px;
+  border: 1px solid #ffffff33;
+  border-radius: 6px;
+  background: #ffffff14;
+  color: #eee;
+  font: inherit;
+  font-size: 13px;
+}
+
+.panel select option {
+  background: #0a0a0f;
+  color: #eee;
+}
+
+.panel label + label {
+  margin-top: 12px;
+}
