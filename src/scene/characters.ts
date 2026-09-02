@@ -38,6 +38,12 @@ export type Character = {
   };
   modelScale: number;
   modelRotationOffset?: { x: number; y: number; z: number };
+  /**
+   * 메시가 모델 원점에서 벗어나 있을 때 되돌리는 값 (캐릭터 프레임 기준 m).
+   * 카메라는 원점을 겨누므로, 원점과 메시 중심이 어긋나면 캐릭터가 화면
+   * 한쪽으로 밀려 보인다.
+   */
+  modelOffset?: { x: number; y: number; z: number };
   /** 눈높이 (m). 1인칭 시점과 3인칭 카메라가 겨누는 높이. */
   fpvHeightOffset: number;
   /** 3인칭 카메라 거리 (m). 작은 캐릭터일수록 가깝게. */
@@ -84,13 +90,16 @@ export const CHARACTERS: Record<CharacterId, Character> = {
   },
   penguin: {
     id: "penguin",
-    label: "펭귄",
-    description: "1m 분홍 펭귄 모델",
+    label: "핑크 펭귄",
+    description: "1m 핑크 펭귄 모델",
     modelUrl: penguinUrl,
     // 이쪽은 전부 소문자다.
     animation: { idleClip: "idle", walkClip: "walk", dashClip: "run" },
     modelRotationOffset: UPRIGHT_Y_UP,
     modelScale: 1,
+    // 이 모델은 penguin_rig 루트에 translation [1.3, 0, 0]이 박혀 있어
+    // 메시가 원점에서 옆으로 벗어나 있다. 그만큼 되돌린다.
+    modelOffset: { x: 1.3, y: 0, z: 0 },
     fpvHeightOffset: 0.9,
     cameraDistance: 5,
   },

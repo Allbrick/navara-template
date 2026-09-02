@@ -261,6 +261,13 @@ src/
     모델에 불필요한 노드가 딸려 오기도 합니다 — human.glb에는 12×12 바닥 평면(`Ground`)이
     들어 있어 그대로 두면 캐릭터가 판때기를 끌고 다닙니다. `hiddenNodes`로 숨깁니다.
 
+    **메시가 모델 원점에서 벗어나 있으면 캐릭터가 화면 한쪽으로 밀려 보입니다.** 카메라는
+    캐릭터의 원점을 겨누기 때문입니다. pink.glb는 `penguin_rig` 루트에
+    `translation: [1.3, 0, 0]`이 박혀 있어 `modelOffset`으로 되돌립니다. 모델을 추가할 때
+    GLB의 루트 노드 `translation`과 메시 bbox 중심을 확인하세요 — 다만 스킨드 메시는
+    bind-pose bbox가 실제와 달라서, 최종 보정값은 화면을 보며 맞추는 편이 확실합니다
+    (bbox 중심은 2.6이었지만 실제로 필요한 값은 루트 translation인 1.3이었습니다).
+
     크기는 두 모델 모두 미터 단위라 `modelScale: 1`입니다.
 
     **표준 Y-up glTF는 전부 `modelRotationOffset` 보정이 필요합니다.** 캐릭터 프레임이

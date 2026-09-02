@@ -87,6 +87,41 @@ export function setModelVisible(
   };
 }
 
+/**
+ * 메시가 모델 원점에서 벗어나 있을 때 되돌린다.
+ *
+ * 카메라는 캐릭터의 원점을 겨누므로, 원점과 메시 중심이 어긋나 있으면 캐릭터가
+ * 화면 한쪽으로 밀려 보인다. `MeshConfig.position`은 프레임 안쪽 오프셋으로
+ * 적용되므로 여기에 반대 방향 값을 준다.
+ *
+ * 모델은 비동기 로드라 잠시 기다렸다 적용한다.
+ */
+export function applyModelOffset(
+  personView: PersonViewPlugin,
+  offset: { x: number; y: number; z: number } | undefined,
+  { attempts = 40, intervalMs = 100 } = {},
+): () => void {
+  if (!offset) return () => {};
+
+  let cancelled = false;
+  let left = attempts;
+
+  const tick = () => {
+    if (cancelled) return;
+    const model = personView.model;
+    if (model) {
+      model.update({ position: offset });
+      return;
+    }
+    if (--left > 0) setTimeout(tick, intervalMs);
+  };
+  tick();
+
+  return () => {
+    cancelled = true;
+  };
+}
+
 type Object3DLike = {
   name?: string;
   visible?: boolean;
