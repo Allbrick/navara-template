@@ -177,7 +177,7 @@ body,
   margin-top: 12px;
 }
 
-.sky-controls {
+.scene-controls {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -190,29 +190,54 @@ body,
   backdrop-filter: blur(8px);
 }
 
-.sky-controls label {
+.scene-controls label {
   display: block;
   font-size: 13px;
 }
 
-.sky-controls label + label {
-  margin-top: 10px;
+.scene-controls .field + .field {
+  margin-top: 12px;
 }
 
-.sky-controls span {
+.scene-controls .field > span {
   display: block;
+  font-size: 13px;
 }
 
-.sky-controls small {
+.scene-controls .segmented {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.scene-controls .segmented button {
+  flex: 1;
+  padding: 5px 0;
+  border: 1px solid #ffffff33;
+  border-radius: 6px;
+  background: #ffffff14;
+  color: #eee;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.scene-controls .segmented button[aria-pressed="true"] {
+  background: #eee;
+  color: #0a0a0f;
+  border-color: #eee;
+}
+
+.scene-controls small {
   color: #ffffff88;
 }
 
-.sky-controls input[type="range"] {
+.scene-controls input[type="range"] {
   width: 100%;
   margin-top: 6px;
 }
 
-.sky-controls select {
+.scene-controls select {
   width: 100%;
   margin-top: 6px;
   padding: 4px 6px;
@@ -224,11 +249,11 @@ body,
   font-size: 12px;
 }
 
-.sky-controls select:disabled {
+.scene-controls select:disabled {
   opacity: 0.5;
 }
 
-.sky-controls select option {
+.scene-controls select option {
   background: #0a0a0f;
   color: #eee;
 }

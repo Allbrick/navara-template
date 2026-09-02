@@ -1,15 +1,18 @@
+import { BASEMAP_LIST, type BasemapId } from "../scene/basemaps";
 import type { CloudQuality } from "../scene/Clouds";
 
 const QUALITIES: CloudQuality[] = ["low", "medium", "high", "ultra"];
 
 type Props = {
+  basemap: BasemapId;
+  onBasemapChange: (value: BasemapId) => void;
   coverage: number;
   onCoverageChange: (value: number) => void;
   quality: CloudQuality;
   onQualityChange: (value: CloudQuality) => void;
 };
 
-/** 구름 양을 백분율로 읽기 쉽게 표기한다. */
+/** 구름 양을 읽기 쉬운 말로 표기한다. */
 function describe(coverage: number): string {
   if (coverage <= 0) return "맑음";
   if (coverage < 0.2) return "구름 조금";
@@ -18,16 +21,34 @@ function describe(coverage: number): string {
   return "매우 흐림";
 }
 
-/** 모든 데모가 공유하는 하늘 설정. */
-export function SkyControls({
+/** 데모와 무관한 씬 전체 설정 (배경지도 · 하늘). */
+export function SceneControls({
+  basemap,
+  onBasemapChange,
   coverage,
   onCoverageChange,
   quality,
   onQualityChange,
 }: Props) {
   return (
-    <section className="sky-controls">
-      <label>
+    <section className="scene-controls">
+      <div className="field">
+        <span>배경지도</span>
+        <div className="segmented">
+          {BASEMAP_LIST.map((map) => (
+            <button
+              key={map.id}
+              type="button"
+              aria-pressed={basemap === map.id}
+              onClick={() => onBasemapChange(map.id)}
+            >
+              {map.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="field">
         <span>
           구름 {Math.round(coverage * 100)}%
           <small> · {describe(coverage)}</small>
@@ -42,8 +63,8 @@ export function SkyControls({
         />
       </label>
 
-      <label>
-        <span>품질</span>
+      <label className="field">
+        <span>구름 품질</span>
         <select
           value={quality}
           onChange={(e) => onQualityChange(e.target.value as CloudQuality)}

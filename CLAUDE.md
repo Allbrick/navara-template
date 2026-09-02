@@ -17,7 +17,7 @@ Navara의 강점인 **빛(light)과 비주얼라이제이션**을 최대한 끌�
 목표보다 높이 솟았는가"라는 동일한 문제이기 때문이다. 불꽃놀이와 탐방은
 `PersonViewPlugin`도 공유한다(App에서 하나만 만들어 내려보낸다).
 
-하늘(구름)은 데모와 무관한 씬 전체 설정이라 `Demos`가 상태를 들고 공유한다.
+배경지도와 하늘(구름)은 데모와 무관한 씬 전체 설정이라 `Demos`가 상태를 들고 공유한다.
 
 남은 과제: 일몰/박명 시각, 능선 프로파일 시각화, 지도 클릭으로 임의 지점 분석
 (현재 일출은 목록 선택, 탐방은 클릭), 불꽃 폭발의 주변 조명(아래 11번 참고).
@@ -96,14 +96,15 @@ src/
   App.tsx          ViewProvider 설정 (canvas, plugins, shadow, animation)
   Demos.tsx        데모 전환 상태 — ViewProvider 내부에 위치
   constants.ts     서울 좌표, 초기 카메라
-  scene/           BaseLayers(베이스맵+지형), PhotorealScene(하늘/태양/AA 번들),
-                   Clouds.tsx(볼류메트릭 구름), personView.ts(캐릭터 플러그인 생성)
+  scene/           BaseLayers(베이스맵+지형), basemaps.ts(배경지도 정의),
+                   PhotorealScene(하늘/태양/AA 번들), Clouds.tsx(볼류메트릭 구름),
+                   personView.ts(캐릭터 플러그인 생성)
   analysis/        occlusion.ts — 지형 차폐/가시선. 두 데모가 공유
   demos/sunrise/   SunriseAnalysis.tsx + sun.ts(시각 탐색) + constants.ts(관측 후보지)
   demos/fireworks/ FireworksAnalysis.tsx + FireworksScene.tsx(렌더) +
                    particles.ts(순수 시뮬레이션) + constants.ts(발사 지점·관측 후보지)
   demos/walk/      WalkDemo.tsx — 클릭 지점에 캐릭터 배치·조작
-  ui/              Panel, SkyControls(구름 양 — 데모 공통)
+  ui/              Panel, SceneControls(배경지도·구름 — 데모 공통)
 ```
 
 ## 구현 시 주의점 (실제로 부딪힌 것들)
@@ -123,9 +124,16 @@ src/
 4. **지형은 Terrarium 인코딩(AWS Terrain Tiles)** 을 씁니다. Navara 문서 예제의
    `JAPAN_GSI_ELEVATION_DECODER`는 일본만 덮으므로 한국에서는 쓸 수 없습니다.
 
-   베이스맵은 **Esri World Imagery**(위성영상)입니다. 키가 필요 없고 CORS가 열려
-   있습니다. **URL 순서가 `{z}/{y}/{x}`로 흔한 `{z}/{x}/{y}`와 뒤바뀌어 있으니**
-   교체할 때 주의하세요. 서울 기준 z19까지 실제 영상이 오고 z20은 빈 타일입니다.
+   베이스맵은 `scene/basemaps.ts`에 정의하고 UI에서 위성/일반을 전환합니다.
+   기본값은 **Esri World Imagery**(위성)이고, 키가 필요 없고 CORS가 열려 있습니다.
+   **URL 순서가 `{z}/{y}/{x}`로 흔한 `{z}/{x}/{y}`와 뒤바뀌어 있으니** 주의하세요.
+   서울 기준 z19까지 실제 영상이 오고 z20은 빈 타일입니다.
+
+   전환은 **소스를 다시 등록하지 않고 레이어가 참조하는 소스 id만 바꿉니다.**
+   소스는 등록만으로 타일을 받지 않고 레이어가 참조할 때 받으므로, 후보를 전부
+   미리 등록해 두면 됩니다(`SourceRef`는 핸들뿐 아니라 id 문자열도 받습니다).
+   attribution은 `add`/`remove`가 구조적 매칭이라 effect cleanup으로 정확히
+   교체됩니다.
 
 5. **three는 단일 인스턴스여야 합니다.** `vite.config.ts`의 `resolve.dedupe`로 고정합니다.
    `optimizeDeps.exclude`로 Navara 패키지를 제외하면 오히려 three가 이중 로드됩니다.
