@@ -68,7 +68,10 @@ export function SceneControls({
         />
       </label>
 
-      <label className="field checkbox">
+      <label
+        className="field checkbox"
+        title="수면 가까이에서 볼 때 켜세요. 고고도 광역 시점에서는 화면 전체가 어두워집니다."
+      >
         <input
           type="checkbox"
           checked={reflections}

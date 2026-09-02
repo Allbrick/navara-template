@@ -46,7 +46,9 @@ export function Demos({ defaultPlugin, personView }: Props) {
   const [basemap, setBasemap] = useState<BasemapId>("satellite");
   const [cloudCoverage, setCloudCoverage] = useState(0.3);
   const [cloudQuality, setCloudQuality] = useState<CloudQuality>("medium");
-  const [reflections, setReflections] = useState(true);
+  // 기본값 off. SSR은 고고도 광역 시점에서 화면 전체를 어둡게 만든다
+  // (근접 수면 시점에서는 정상). WaterReflection 주석 참고.
+  const [reflections, setReflections] = useState(false);
   const { view } = useViewContext();
 
   /**
