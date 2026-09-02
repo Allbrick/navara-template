@@ -141,8 +141,16 @@ src/
 4. **지형은 Terrarium 인코딩(AWS Terrain Tiles)** 을 씁니다. Navara 문서 예제의
    `JAPAN_GSI_ELEVATION_DECODER`는 일본만 덮으므로 한국에서는 쓸 수 없습니다.
 
-   베이스맵은 `scene/basemaps.ts`에 정의하고 UI에서 위성/일반을 전환합니다.
+   베이스맵은 `scene/basemaps.ts`에 정의하고 UI에서 전환합니다(위성 / S2 / 일반).
    기본값은 **Esri World Imagery**(위성)이고, 키가 필요 없고 CORS가 열려 있습니다.
+
+   **S2 = EOX Sentinel-2 cloudless 2024**(WMTS). 구름 없는 합성 영상이라 색이 균일하고
+   야간 씬에 깔끔합니다. 다만 (a) Sentinel-2 지상 해상도가 10m라 `maxZoom`이 15이고
+   그 이상은 확대만 됩니다, (b) **무료 서비스라 속도 제한이 있습니다** — 타일을 많이
+   한꺼번에 요청하면 지연되거나 503이 돌아옵니다(실측: 24장 버스트가 9초, 엔진의
+   피라미드 로딩 중 일부 503). 화면은 결국 채워지지만 초기 로딩이 Esri보다 느립니다.
+   URL이 쿼리스트링 형태(`?...&TileMatrix={z}&TileCol={x}&TileRow={y}`)여도 정상
+   동작합니다.
    **URL 순서가 `{z}/{y}/{x}`로 흔한 `{z}/{x}/{y}`와 뒤바뀌어 있으니** 주의하세요.
    서울 기준 z19까지 실제 영상이 오고 z20은 빈 타일입니다.
 

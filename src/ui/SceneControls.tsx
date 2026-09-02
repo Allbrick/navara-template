@@ -39,10 +39,11 @@ export function SceneControls({
             <button
               key={map.id}
               type="button"
+              title={map.description}
               aria-pressed={basemap === map.id}
               onClick={() => onBasemapChange(map.id)}
             >
-              {map.name}
+              {map.label}
             </button>
           ))}
         </div>
