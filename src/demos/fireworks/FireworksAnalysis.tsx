@@ -1,9 +1,11 @@
+import type { PersonViewPlugin } from "@navaramap/three-plugins";
 import { useViewContext } from "@navaramap/three-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   checkLineOfSight,
   SAMPLE_LEVEL,
+  sightTarget,
   type LineOfSight,
   type TerrainSampler,
 } from "../../analysis/occlusion";
@@ -32,6 +34,10 @@ type Result = LineOfSight & {
   groundHeightM: number;
 };
 
+type Props = {
+  personView: PersonViewPlugin;
+};
+
 /**
  * 불꽃놀이 분석 데모.
  *
@@ -39,11 +45,12 @@ type Result = LineOfSight & {
  * 일출 분석의 지형 차폐 계산(`analysis/occlusion`)을 그대로 재사용한다 —
  * "특정 방위의 지형이 목표보다 높이 솟았는가"라는 문제가 동일하기 때문이다.
  */
-export function FireworksAnalysis() {
+export function FireworksAnalysis({ personView }: Props) {
   const { view } = useViewContext();
 
   const [results, setResults] = useState<Result[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,21 +111,47 @@ export function FireworksAnalysis() {
     }
   }, [view]);
 
-  /** 해당 관측지로 카메라를 옮기고 폭발 지점을 바라보게 한다. */
+  /**
+   * 해당 관측지에 캐릭터를 세우고 폭발 지점을 올려다보게 한다.
+   *
+   * 방위·고도각은 표에 쓰인 분석값(관측 높이 기준)이 아니라 **캐릭터의 실제 눈높이**
+   * 에서 다시 계산한다. collision이 ground라 캐릭터는 지형 표면에 붙으므로,
+   * 남산 전망대처럼 eyeOffset이 큰 지점은 분석 관측점과 높이가 달라진다.
+   */
   const goTo = useCallback(
     (result: Result) => {
-      setSelected(result.viewpoint.id);
-      view.setCamera({
-        lng: result.viewpoint.lng,
-        lat: result.viewpoint.lat,
-        height: result.groundHeightM + result.viewpoint.eyeOffsetM,
-        heading: result.azimuthDeg,
-        pitch: result.elevationDeg,
-        roll: 0,
+      const { lng, lat } = result.viewpoint;
+      const eye = {
+        lng,
+        lat,
+        height: result.groundHeightM + personView.getFpvHeightOffset(),
+      };
+      const sighting = sightTarget(eye, BURST_POINT);
+
+      personView.teleport({
+        lng,
+        lat,
+        alt: result.groundHeightM,
+        heading: sighting.azimuthDeg,
       });
+      personView.setViewMode("fpv");
+      // fpvPitch는 양수가 아래를 향한다. 폭발은 위에 있으므로 부호를 뒤집는다.
+      personView.setFpvPitch(-sighting.elevationDeg);
+      personView.start();
+
+      setSelected(result.viewpoint.id);
+      setWatching(true);
     },
-    [view],
+    [personView],
   );
+
+  const release = useCallback(() => {
+    personView.stop();
+    setWatching(false);
+  }, [personView]);
+
+  // 다른 데모로 넘어갈 때 카메라를 view에 돌려준다.
+  useEffect(() => () => personView.stop(), [personView]);
 
   return (
     <>
@@ -165,11 +198,17 @@ export function FireworksAnalysis() {
           </table>
         )}
 
+        {watching && (
+          <button type="button" onClick={release}>
+            관람 종료 (지도 탐색)
+          </button>
+        )}
+
         {results && (
           <p className="note">
-            행을 누르면 해당 관측지에서 폭발 지점을 바라보는 시점으로
-            이동합니다. 표고가 SRTM 계열이라 도심 구간은 건물이 포함된
-            표면모델로 동작합니다.
+            행을 누르면 그 관측지에 캐릭터가 서서 폭발 지점을 올려다봅니다.
+            W/S·A/D로 이동, V로 3인칭 전환. 표고가 SRTM 계열이라 도심 구간은
+            건물이 포함된 표면모델로 동작합니다.
           </p>
         )}
       </Panel>

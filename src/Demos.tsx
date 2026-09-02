@@ -36,8 +36,11 @@ export function Demos({ defaultPlugin, personView }: Props) {
   // 개발 중 콘솔에서 엔진 API를 직접 두드려 보기 위한 핸들.
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { view?: unknown }).view = view;
-  }, [view]);
+    Object.assign(window as unknown as Record<string, unknown>, {
+      view,
+      personView,
+    });
+  }, [view, personView]);
 
   return (
     <>
@@ -58,7 +61,7 @@ export function Demos({ defaultPlugin, personView }: Props) {
       </nav>
 
       {demo === "sunrise" && <SunriseAnalysis />}
-      {demo === "fireworks" && <FireworksAnalysis />}
+      {demo === "fireworks" && <FireworksAnalysis personView={personView} />}
       {demo === "walk" && <WalkDemo personView={personView} />}
     </>
   );
